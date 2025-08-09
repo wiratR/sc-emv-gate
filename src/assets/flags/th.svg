@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 24">
+  <!-- Thailand flag (ratio 3:2) -->
+  <!-- Red background (top+bottom) -->
+  <rect width="36" height="24" fill="#A51931"></rect>
+  <!-- White stripes -->
+  <rect y="4" width="36" height="16" fill="#FFFFFF"></rect>
+  <!-- Blue center (double height) -->
+  <rect y="8" width="36" height="8" fill="#2D2A4A"></rect>
+</svg>
