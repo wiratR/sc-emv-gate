@@ -18,7 +18,9 @@
     "dev": "concurrently -k \"vite --config vite.config.ts\" \"npm:dev:main\" \"npm:dev:electron\"",
     "dev:main": "tsc -p tsconfig.electron.json --watch",
     "dev:electron": "wait-on http://localhost:5173 dist-electron/main.js && nodemon",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "electron-rebuild -f -w better-sqlite3 || true"
   },
   "build": {
     "appId": "com.example.sc-emv-gate",
@@ -32,6 +34,9 @@
       "buildResources": "build"
     },
     "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ],
     "mac": {
       "category": "public.app-category.utilities",
       "target": [
@@ -68,11 +73,14 @@
     }
   },
   "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^12.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.8.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.3",
@@ -81,6 +89,7 @@
     "cross-env": "^10.0.0",
     "electron": "^30.0.0",
     "electron-builder": "^25.1.8",
+    "electron-rebuild": "^3.2.9",
     "nodemon": "^3.1.4",
     "postcss": "^8.4.47",
     "rimraf": "^6.0.1",

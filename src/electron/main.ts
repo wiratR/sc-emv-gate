@@ -1,6 +1,9 @@
 import { BrowserWindow, app } from 'electron';
 
+import { openDB } from "./db";
 import path from 'path';
+import { setupAuthIPC } from "./ipc/auth";
+import { setupConfigIPC } from "./ipc/config";
 import url from 'url';
 
 const isDev = !app.isPackaged; // 👈 ใช้อันนี้แทน NODE_ENV
@@ -8,13 +11,16 @@ const isDev = !app.isPackaged; // 👈 ใช้อันนี้แทน NODE
 let win: BrowserWindow | null = null;
 
 function createWindow() {
+  const db = openDB();
+  setupAuthIPC(db);
+  setupConfigIPC();
   win = new BrowserWindow({
     width: 1100,
     height: 800,
     show: false,
     backgroundColor: '#000', // กันแฟลชขาว
     webPreferences: {
-      // preload: path.join(__dirname, 'preload.js'), // ปิดชั่วคราวถ้ายังขาว
+      preload: path.join(__dirname, 'preload.js'), // ปิดชั่วคราวถ้ายังขาว
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,

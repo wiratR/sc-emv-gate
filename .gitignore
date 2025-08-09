@@ -5,3 +5,7 @@ dist-*
 out
 .DS_Store
 *.log
+
+config.json
+
+database
