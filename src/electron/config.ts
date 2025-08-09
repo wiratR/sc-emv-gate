@@ -12,14 +12,25 @@ export type AppConfig = {
   logLevel: LogLevel;
   logsRetentionDays: number;
   environment: "development" | "production" | string;
+
+  // ⬇️ ใหม่ (optional)
+  stationName?: string;
+  stationId?: string;
+  stationIp?: string;
+  deviceCommunicationPath?: string; // ใช้ชื่อคีย์ตามไฟล์ของคุณ
 };
 
+// เพิ่ม default (ตามความเหมาะสม)
 const DEFAULTS: AppConfig = {
   databasePath: "./database/app.sqlite",
   logsPath: "./logs",
   logLevel: "info",
   logsRetentionDays: 14,
-  environment: "production", // ดีฟอลต์เป็นโปรดักชัน
+  environment: "production",
+  stationName: "",
+  stationId: "",
+  stationIp: "",
+  deviceCommunicationPath: "./data",
 };
 
 let cached: AppConfig | undefined;

@@ -32,15 +32,16 @@ declare global {
       // auth
       login: (u: string, p: string) => Promise<LoginResult>;
       register: (u: string, p: string, r?: UserRole) => Promise<RegisterResult>;
-
       // config
       getConfig: () => Promise<GetConfigResult>;
       updateConfig: (partial: any) => Promise<UpdateConfigResult>;
-
-      // ✅ ใหม่
+      // log
       getLogInfo: () => Promise<{ ok:boolean; minLevel:string; logFile:string; logDir:string }>;
       openLogsFolder: () => Promise<{ ok:boolean; logDir:string }>;
-
+    };
+    devices?: {
+      getDevices: () => Promise<{ ok: boolean; devices: any[]; path: string }>;
+      onUpdated: (handler: (list: any[]) => void) => () => void; // returns unsubscribe
     };
   }
 }

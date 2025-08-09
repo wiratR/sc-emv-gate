@@ -1,0 +1,32 @@
+[
+    {
+        "id": "G1-01",
+        "gateId": "G1",
+        "name": "Entry Reader 01",
+        "side": "north",
+        "type": "reader",
+        "status": "online",
+        "lastHeartbeat": "2025-08-09T10:00:12Z",
+        "message": "OK"
+    },
+    {
+        "id": "G1-02",
+        "gateId": "G1",
+        "name": "Exit Reader 02",
+        "side": "south",
+        "type": "reader",
+        "status": "offline",
+        "lastHeartbeat": "2025-08-09T09:57:30Z",
+        "message": "No response"
+    },
+    {
+        "id": "G1-AG",
+        "gateId": "G1",
+        "name": "Auto Gate Controller",
+        "side": "north",
+        "type": "controller",
+        "status": "fault",
+        "lastHeartbeat": "2025-08-09T10:02:45Z",
+        "message": "Motor overload"
+    }
+]

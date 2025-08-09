@@ -1,8 +1,10 @@
 // src/electron/db/seed.ts
 
 import type { AppConfig } from "../config";
-import type Database from "better-sqlite3";
+import type BetterSqlite3 from "better-sqlite3";
 import bcrypt from "bcryptjs";
+
+type DB = InstanceType<typeof BetterSqlite3>;
 
 type LoggerLike = {
   debug: (...a:any[]) => void;
@@ -11,7 +13,7 @@ type LoggerLike = {
   error: (...a:any[]) => void;
 };
 
-export function seedUsersIfDev(db: Database, config: AppConfig, logger: LoggerLike) {
+export function seedUsersIfDev(db: DB, config: AppConfig, logger: LoggerLike) {
   if (config.environment !== "development") {
     logger.debug("[seed] Environment is not 'development' → skip");
     return;
@@ -19,11 +21,11 @@ export function seedUsersIfDev(db: Database, config: AppConfig, logger: LoggerLi
 
   const row = db.prepare("SELECT COUNT(*) AS c FROM users").get() as { c: number };
   if (row.c > 0) {
-    logger.info(`[seed] Found ${row.c} existing users → skip seeding`);
+    logger.info(`[seed] Found ${row.c} users → skip`);
     return;
   }
 
-  logger.info("[seed] No users found → seeding default users (dev)");
+  logger.info("[seed] Seeding default users (dev)");
 
   const users = [
     { username: "admin",        password: "1234", role: "admin" },
@@ -40,14 +42,14 @@ export function seedUsersIfDev(db: Database, config: AppConfig, logger: LoggerLi
     for (const u of items) {
       const password_hash = bcrypt.hashSync(u.password, 10);
       insert.run({ username: u.username, password_hash, role: u.role });
-      logger.debug(`[seed] Inserted '${u.username}' as '${u.role}'`);
+      logger.debug(`[seed] Inserted '${u.username}' (${u.role})`);
     }
   });
 
   try {
     tx(users);
-    logger.info("[seed] Default users seeded successfully");
+    logger.info("[seed] Done");
   } catch (err) {
-    logger.error("[seed] Failed to seed users", err);
+    logger.error("[seed] Failed", err);
   }
 }

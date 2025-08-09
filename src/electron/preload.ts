@@ -24,8 +24,17 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("auth:login", { username, password }),
   // ✅ เพิ่มสองตัวนี้
   getLogInfo: () => ipcRenderer.invoke("log:info"),
-  openLogsFolder: () => ipcRenderer.invoke("log:open-folder"),
-  
+  openLogsFolder: () => ipcRenderer.invoke("log:open-folder"),  
+});
+
+contextBridge.exposeInMainWorld("devices", {
+  getDevices: () => ipcRenderer.invoke("devices:get"),
+  onUpdated: (handler: (list: any[]) => void) => {
+    const wrapped = (_: unknown, payload: any[]) => handler(payload);
+    ipcRenderer.on("devices:updated", wrapped);
+    // คืน disposer ให้ถอด listener ได้
+    return () => ipcRenderer.removeListener("devices:updated", wrapped);
+  },
 });
 
 // Types (optional)
@@ -44,6 +53,10 @@ declare global {
       login: (u: string, p: string) => Promise<{ ok: boolean; user?: { id:number; username:string; role:string }; error?: string }>;
       openLogsFolder: () => Promise<{ ok:boolean; logDir:string }>;
       getLogInfo: () => Promise<{ ok:boolean; minLevel:string; logFile:string; logDir:string }>;
+    };
+    devices?: {
+      getDevices: () => Promise<{ ok: boolean; devices: any[]; path: string }>;
+      onUpdated: (handler: (list: any[]) => void) => () => void;
     };
   }
 }

@@ -1,40 +1,42 @@
 // src/electron/ipc/auth.ts
 
-import type Database from "better-sqlite3";
+import type BetterSqlite3 from "better-sqlite3";
 import bcrypt from "bcryptjs";
 import { ipcMain } from "electron";
 
-export function setupAuthIPC(db: Database.Database) {
-  const insertUser = db.prepare(
-    "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)"
-  );
-  const getUser = db.prepare(
-    "SELECT id, username, password_hash, role FROM users WHERE username = ?"
-  );
+type DB = InstanceType<typeof BetterSqlite3>;
+type Role = "admin" | "staff" | "maintenance";
+type UserRow = { id: number; username: string; password_hash: string; role: Role };
 
-  ipcMain.handle("auth:register", async (_e, { username, password, role }) => {
-    if (!username || !password) return { ok: false, error: "Missing fields" };
-    const normalized = String(username).trim().toLowerCase();
-    const allowed = ["admin", "staff", "maintenance"];
-    const safeRole = allowed.includes(role) ? role : "staff";
-    const hash = await bcrypt.hash(password, 10);
-    try {
-      insertUser.run(normalized, hash, safeRole);
-      return { ok: true };
-    } catch (e: any) {
-      if (String(e?.message || "").includes("UNIQUE")) {
-        return { ok: false, error: "Username already exists" };
-      }
-      return { ok: false, error: "Register failed" };
+export function setupAuthIPC(db: DB) {
+  ipcMain.handle("auth:login", (_e, payload: { username: string; password: string }) => {
+    const { username, password } = payload || { username: "", password: "" };
+
+    const stmt = db.prepare(
+      "SELECT id, username, password_hash, role FROM users WHERE username = @username"
+    );
+    const row = stmt.get({ username }) as UserRow | undefined;
+
+    if (!row) return { ok: false, error: "User not found" };
+    if (!bcrypt.compareSync(password, row.password_hash)) {
+      return { ok: false, error: "Invalid password" };
     }
+
+    return { ok: true, user: { id: row.id, username: row.username, role: row.role } };
   });
 
-  ipcMain.handle("auth:login", async (_e, { username, password }) => {
-    const normalized = String(username).trim().toLowerCase();
-    const row = getUser.get(normalized);
-    if (!row) return { ok: false, error: "Invalid credentials" };
-    const match = await bcrypt.compare(password, row.password_hash);
-    if (!match) return { ok: false, error: "Invalid credentials" };
-    return { ok: true, user: { id: row.id, username: row.username, role: row.role } };
+  ipcMain.handle("auth:register", (_e, payload: { username: string; password: string; role?: Role }) => {
+    const { username, password, role = "staff" } = payload || ({} as any);
+
+    const exists = db.prepare("SELECT 1 FROM users WHERE username = @username").get({ username }) as
+      | { 1: 1 }
+      | undefined;
+    if (exists) return { ok: false, error: "Username already exists" };
+
+    const hash = bcrypt.hashSync(password, 10);
+    db.prepare("INSERT INTO users (username, password_hash, role) VALUES (@username, @hash, @role)")
+      .run({ username, hash, role });
+
+    return { ok: true };
   });
 }
