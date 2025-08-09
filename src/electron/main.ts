@@ -1,5 +1,8 @@
+// src/electron/main.ts
+
 import { BrowserWindow, app } from 'electron';
 
+import { initLogger } from "./logging";
 import { openDB } from "./db";
 import path from 'path';
 import { setupAuthIPC } from "./ipc/auth";
@@ -11,9 +14,12 @@ const isDev = !app.isPackaged; // 👈 ใช้อันนี้แทน NODE
 let win: BrowserWindow | null = null;
 
 function createWindow() {
-  const db = openDB();
+  const logger = initLogger();               // ✅ ได้ { refresh, getInfo, debug/info/warn/error }
+  const db = openDB(logger);                 // ✅ ส่งเข้าไป
+
   setupAuthIPC(db);
-  setupConfigIPC();
+  setupConfigIPC(logger);
+
   win = new BrowserWindow({
     width: 1100,
     height: 800,
@@ -55,6 +61,9 @@ function createWindow() {
   win.on('unresponsive', () => console.error('[window] unresponsive'));
 
   win.on('closed', () => { win = null; });
+
+  // ตัวอย่าง log
+  console.log("[app] ready");
 }
 
 app.whenReady().then(() => {

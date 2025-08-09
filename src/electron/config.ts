@@ -1,21 +1,31 @@
-import { app } from "electron";
 // src/electron/config.ts
+
+import { app } from "electron";
 import fs from "fs";
 import path from "path";
 
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
 export type AppConfig = {
   databasePath: string;
+  logsPath: string;
+  logLevel: LogLevel;
+  logsRetentionDays: number;
+  environment: "development" | "production" | string;
 };
 
 const DEFAULTS: AppConfig = {
   databasePath: "./database/app.sqlite",
+  logsPath: "./logs",
+  logLevel: "info",
+  logsRetentionDays: 14,
+  environment: "production", // ดีฟอลต์เป็นโปรดักชัน
 };
 
-let cached: AppConfig | null = null;
+let cached: AppConfig | undefined;
 let cachedPath = "";
 
 function resolveCandidatePaths() {
-  // ลำดับค้นหา: userData/config.json → resources/config.json (prod) → ../config.json (dev)
   const userDataCfg = path.join(app.getPath("userData"), "config.json");
   const resourceCfg = path.join(process.resourcesPath || "", "config.json");
   const devCfg = path.join(__dirname, "../config.json");
@@ -25,35 +35,33 @@ function resolveCandidatePaths() {
 export function loadConfig(): { config: AppConfig; pathUsed: string } {
   if (cached) return { config: cached, pathUsed: cachedPath };
 
-  const candidates = resolveCandidatePaths();
-  let foundPath = "";
   let loaded: Partial<AppConfig> = {};
+  let used = "";
 
-  for (const p of candidates) {
+  for (const p of resolveCandidatePaths()) {
     try {
       if (fs.existsSync(p)) {
-        const raw = fs.readFileSync(p, "utf-8");
-        loaded = JSON.parse(raw);
-        foundPath = p;
+        loaded = JSON.parse(fs.readFileSync(p, "utf-8"));
+        used = p;
         break;
       }
-    } catch {
-      // ข้ามไฟล์เสีย
-    }
+    } catch {}
   }
 
-  cached = { ...DEFAULTS, ...loaded };
-  cachedPath = foundPath || "(defaults)";
-  return { config: cached, pathUsed: cachedPath };
+  const merged: AppConfig = { ...DEFAULTS, ...loaded };
+  cached = merged;
+  cachedPath = used || "(defaults)";
+  return { config: merged, pathUsed: cachedPath };
 }
 
 export function updateConfig(newCfg: Partial<AppConfig>) {
-  const { config } = loadConfig();
-  const merged = { ...config, ...newCfg };
-  // บันทึกลง userData/config.json เสมอ
+  const { config: current } = loadConfig();
+  const merged: AppConfig = { ...current, ...newCfg };
+
   const userCfgPath = path.join(app.getPath("userData"), "config.json");
   fs.mkdirSync(path.dirname(userCfgPath), { recursive: true });
   fs.writeFileSync(userCfgPath, JSON.stringify(merged, null, 2));
+
   cached = merged;
   cachedPath = userCfgPath;
   return { config: merged, pathUsed: userCfgPath };

@@ -1,3 +1,4 @@
 {
-    "databasePath": "./database/app.sqlite"
+    "databasePath": "./database/app.sqlite",
+    "envarmonent" : "development"
 }

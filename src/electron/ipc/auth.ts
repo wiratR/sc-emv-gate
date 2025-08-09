@@ -1,6 +1,7 @@
+// src/electron/ipc/auth.ts
+
 import type Database from "better-sqlite3";
 import bcrypt from "bcryptjs";
-// src/electron/ipc/auth.ts
 import { ipcMain } from "electron";
 
 export function setupAuthIPC(db: Database.Database) {
