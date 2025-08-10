@@ -7,7 +7,8 @@
         "type": "reader",
         "status": "online",
         "lastHeartbeat": "2025-08-09T10:00:12Z",
-        "message": "OK"
+        "message": "OK",
+        "deviceIp": "192.168.1.101"
     },
     {
         "id": "G1-02",
@@ -17,7 +18,8 @@
         "type": "reader",
         "status": "offline",
         "lastHeartbeat": "2025-08-09T09:57:30Z",
-        "message": "No response"
+        "message": "No response",
+        "deviceIp": "192.168.1.102"
     },
     {
         "id": "G1-AG",
@@ -27,6 +29,7 @@
         "type": "controller",
         "status": "fault",
         "lastHeartbeat": "2025-08-09T10:02:45Z",
-        "message": "Motor overload"
+        "message": "Motor overload",
+        "deviceIp": "192.168.1.103"
     }
 ]

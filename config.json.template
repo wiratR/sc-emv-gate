@@ -1,6 +1,6 @@
 {
     "databasePath": "./database/app.sqlite",
-    "logsPath": "./logs",
+    "logsPath": "/Users/wrung/Projects/sc-emv-gate/logs",
     "logLevel": "info",
     "logsRetentionDays": 14,
     "environment": "development",

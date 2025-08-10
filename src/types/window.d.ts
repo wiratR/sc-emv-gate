@@ -30,7 +30,8 @@ declare global {
   interface Window {
     api?: {
       // auth
-      login: (u: string, p: string) => Promise<LoginResult>;
+      login: (u: string, p: string) => Promise<{ ok: boolean; user?: { username: string; role: string } }>;
+      logout?: () => Promise<void> | void;
       register: (u: string, p: string, r?: UserRole) => Promise<RegisterResult>;
       // config
       getConfig: () => Promise<GetConfigResult>;

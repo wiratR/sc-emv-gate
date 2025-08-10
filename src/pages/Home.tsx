@@ -1,37 +1,13 @@
 // src/pages/Home.tsx
+
+import { Device, Side } from "@/models/device";
 import { useEffect, useMemo, useState } from "react";
 
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-import LogoSVG from "@/assets/logo.svg?react";
+import DeviceCard from "@/components/DeviceCard";
+import Header from "@/components/Header";
+import { STATUS_ORDER } from "@/utils/status";
+import SummaryCard from "@/components/SummaryCard";
 import { useAuth } from "@/auth/AuthContext";
-
-type DeviceStatus = "online" | "offline" | "fault" | "maintenance";
-type Side = "north" | "south";
-type Device = {
-  id: string;
-  gateId?: string;
-  name: string;
-  side: Side;
-  type?: string;
-  status: DeviceStatus;
-  lastHeartbeat?: string;
-  message?: string;
-};
-
-const STATUS_ORDER: Record<DeviceStatus, number> = {
-  online: 1,
-  maintenance: 2,
-  fault: 3,
-  offline: 4,
-};
-
-const statusClass = (s: DeviceStatus) =>
-  ({
-    online: "bg-green-100 text-green-800 border-green-200",
-    offline: "bg-gray-100 text-gray-800 border-gray-200",
-    fault: "bg-red-100 text-red-800 border-red-200",
-    maintenance: "bg-amber-100 text-amber-900 border-amber-200",
-  }[s]);
 
 export default function Home() {
   const { user, logout } = useAuth();
@@ -80,43 +56,11 @@ export default function Home() {
   return (
     <div className="bg-white min-h-screen">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
-        <div className="mx-auto max-w-7xl px-6 py-3">
-          <div className="flex items-center justify-between gap-4">
-            {/* Left: Logo + Title */}
-            <div className="flex items-center gap-3">
-              <LogoSVG className="w-10 h-10" /> {/* ✅ โลโก้ SCG */}
-              <div>
-                <div className="text-base font-semibold">EMV Gate Monitoring</div>
-                <div className="text-xs text-gray-500">North / South device health</div>
-              </div>
-            </div>
-
-            {/* Center: Station Info */}
-            <div className="text-center">
-              <div className="font-semibold">
-                {stationName || "-"} {stationId ? `(ID: ${stationId})` : ""}
-              </div>
-              <div className="font-semibold">{stationIp || "-"}</div>
-            </div>
-
-            {/* Right: Username + LanguageSwitcher + Logout */}
-            <div className="flex items-center gap-3">
-              <div className="text-sm text-right">
-                <div className="font-semibold">{user?.username || "Guest"}</div>
-                <div className="text-xs text-gray-500">{user?.role?.toUpperCase?.() || ""}</div>
-              </div>
-              <LanguageSwitcher />
-              <button
-                onClick={logout}
-                className="px-3 py-1 rounded-lg bg-red-500 text-white text-sm hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Header />  
+      {/* 
+        ถ้าหน้าไหนไม่อยากโชว์ station info (เช่นหน้า Login): 
+        <Header showStationInfo={false} />
+      */}
 
       {/* Body */}
       <div className="mx-auto max-w-7xl p-6 space-y-6">
@@ -154,52 +98,10 @@ export default function Home() {
           {list.map((d) => (
             <DeviceCard key={d.id} device={d} />
           ))}
-          {list.length === 0 && <div className="text-sm text-gray-500">No devices on this side.</div>}
+          {list.length === 0 && (
+            <div className="text-sm text-gray-500">No devices on this side.</div>
+          )}
         </section>
-      </div>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, tone }: { label: string; value: number; tone?: DeviceStatus }) {
-  const toneClass =
-    tone === "online"
-      ? "bg-green-50 text-green-800 border-green-200"
-      : tone === "maintenance"
-      ? "bg-amber-50 text-amber-900 border-amber-200"
-      : tone === "fault"
-      ? "bg-red-50 text-red-800 border-red-200"
-      : tone === "offline"
-      ? "bg-gray-50 text-gray-800 border-gray-200"
-      : "bg-white text-gray-900";
-  return (
-    <div className={`rounded-2xl border p-4 ${toneClass}`}>
-      <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
-      <div className="text-2xl font-semibold">{value}</div>
-    </div>
-  );
-}
-
-function DeviceCard({ device }: { device: Device }) {
-  const badge = (
-    <span className={`inline-flex items-center text-xs border px-2 py-0.5 rounded-full ${statusClass(device.status)}`}>
-      {device.status.toUpperCase()}
-    </span>
-  );
-
-  return (
-    <div className={`rounded-2xl border p-4 ${statusClass(device.status)}`}>
-      <div className="flex items-center justify-between">
-        <div className="font-medium">{device.name}</div>
-        {badge}
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-y-1 text-sm">
-        <div>ID</div><div>{device.id}</div>
-        <div>Gate</div><div>{device.gateId ?? "-"}</div>
-        <div>Side</div><div className="capitalize">{device.side}</div>
-        <div>Type</div><div>{device.type ?? "-"}</div>
-        <div>Heartbeat</div><div>{device.lastHeartbeat ?? "-"}</div>
-        <div>Message</div><div>{device.message ?? "-"}</div>
       </div>
     </div>
   );

@@ -11,55 +11,36 @@ type AuthCtx = {
 };
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
- 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-   const [user, setUser] = useState<User>(() => {
-     if (typeof window !== "undefined") {
-       try {
-         return JSON.parse(localStorage.getItem("auth_user") || "null");
-       } catch {
-         return null;
-       }
-     }
-     return null;
-   });
 
-  const login = async (username: string, password: string) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // ❌ ไม่อ่าน/เขียน localStorage → ไม่จำ session
+  const [user, setUser] = useState<User>(null);
+
+  const login = async (username: string, password: string): Promise<boolean> => {
+    // Electron (IPC) เท่านั้น
     if (typeof window !== "undefined" && window.api?.login) {
       try {
         const res = await window.api.login(username, password);
-        if (res.ok && res.user) {
+        if (res?.ok && res.user) {
           const u: User = { username: res.user.username, role: res.user.role as Role };
-          setUser(u);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("auth_user", JSON.stringify(u));
-          }
+          setUser(u); // ✅ แค่อยู่ใน memory
           return true;
         }
         return false;
-      } catch {
+      } catch (e) {
+        window.logger?.error?.("[auth] login error", e as any);
         return false;
       }
     }
-
-    // Web fallback (dev only)
-    const ok = username.trim() !== "" && password === "1234";
-    if (ok) {
-      const u: User = { username, role: "staff" };
-      setUser(u);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("auth_user", JSON.stringify(u));
-      }
-      return true;
-    }
+    // ไม่มี IPC → ไม่รองรับ login บนเว็บ
     return false;
   };
 
   const logout = () => {
-    setUser(null);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_user");
-    }
+    if (user) window.logger?.info?.("[auth] logout", { username: user.username });
+    setUser(null); // ✅ แค่ล้าง state ใน memory
+    // ถ้ามี main process จัดการ token/อะไรเพิ่มเติม ให้เรียก window.api?.logout?.() ที่นี่ได้
+    // window.api?.logout?.();
   };
 
   return <Ctx.Provider value={{ user, login, logout }}>{children}</Ctx.Provider>;

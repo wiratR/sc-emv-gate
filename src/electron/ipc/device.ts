@@ -13,6 +13,7 @@ export type Device = {
   status: DeviceStatus;
   lastHeartbeat?: string;
   message?: string;
+  deviceIp?: string; // ✅ เพิ่ม IP
 };
 
 let filePath = "";
