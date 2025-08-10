@@ -1,4 +1,11 @@
 {
     "databasePath": "./database/app.sqlite",
-    "envarmonent" : "development"
+    "logsPath": "./logs",
+    "logLevel": "info",
+    "logsRetentionDays": 14,
+    "environment": "development",
+    "deviceCommunicationPath" : "/Users/wrung/Projects/sc-emv-gate/data",
+    "stationIp" : "192.168.1.100",
+    "stationName" : "SamYan",
+    "stationId" : "13"
 }

@@ -50,6 +50,7 @@ function createWindow() {
   // deviceCommunicationPath → ไฟล์ JSON จริง
   const deviceFilePath = resolveDeviceFilePath(config.deviceCommunicationPath, pathUsed);
   setupDeviceIPC(getWindow, deviceFilePath);
+  console.log("[main] debug deviceFile Path:", deviceFilePath);
 
   // ── Create BrowserWindow ──────────────────────────────────────────────────────
   win = new BrowserWindow({

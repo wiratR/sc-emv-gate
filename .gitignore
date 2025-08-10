@@ -7,5 +7,6 @@ out
 *.log
 
 config.json
-
 database
+data
+logs

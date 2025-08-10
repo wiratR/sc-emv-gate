@@ -27,8 +27,9 @@ function ensureDirExists(p: string) {
 
 function ensureFileExists(jsonPath: string) {
   const dir = path.dirname(jsonPath);
+  // ถ้าไม่มีโฟลเดอร์ → สร้าง
   ensureDirExists(dir);
-
+  // ถ้าไม่มีไฟล์ → สร้างไฟล์เปล่า []
   if (!fs.existsSync(jsonPath)) {
     try {
       fs.writeFileSync(jsonPath, "[]", "utf-8");
