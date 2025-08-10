@@ -50,7 +50,7 @@ npm run dev
 npm run dev:web
 ```
 
-แล้วเปิด http://localhost:5173 ใน browser
+เมื่อรันสำเร็จสามารถเปิด http://localhost:5173 ใน browser
 
 🏗 Build สำหรับ Production
 ```bash

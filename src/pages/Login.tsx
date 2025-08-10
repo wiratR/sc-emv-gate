@@ -1,39 +1,36 @@
 // src/pages/Login.tsx
-import { FormEvent, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { FormEvent, useRef, useState } from "react";
 
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-import logo from "@/assets/logo.svg";
+import LogoSVG from "@/assets/logo.svg?react";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n/I18nProvider";
-
-type Role = "admin" | "staff" | "maintenance";
 
 export default function Login() {
   const { user, login } = useAuth();
   const { t } = useI18n();
-  const nav = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  // ✅ ถ้าล็อกอินอยู่แล้ว ให้เป้าไปตาม role (ไม่ใช้ loc.state/จากไหนทั้งนั้น)
+  // ถ้าล็อกอินแล้ว → ไปตาม role
   if (user) {
     const target = user.role === "admin" ? "/settings" : "/home";
-    window.logger?.info("[login] already logged-in → navigate (by role)", {
-      role: user.role,
-      target,
-    });
+    window.logger?.info("[login] already logged-in → navigate (by role)", { role: user.role, target });
     return <Navigate to={target} replace />;
   }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading) return; // กันกดซ้ำ
     setErr("");
     setLoading(true);
 
     const f = new FormData(e.currentTarget as HTMLFormElement);
-    const username = String(f.get("username") ?? "");
+    const username = String(f.get("username") ?? "").trim();
     const password = String(f.get("password") ?? "");
 
     window.logger?.info("[login] submit", { username });
@@ -42,19 +39,9 @@ export default function Login() {
     setLoading(false);
 
     if (ok) {
-      // อ่าน role ล่าสุดจาก localStorage ที่ AuthContext เซฟไว้
-      let role: Role = "staff";
-      try {
-        const saved = JSON.parse(localStorage.getItem("auth_user") || "null");
-        if (saved?.role) role = saved.role as Role;
-      } catch {}
-
-      const target = role === "admin" ? "/settings" : "/home";
-      window.logger?.info("[login] success → navigate (by role)", { role, target });
-      nav(target, { replace: true });
+      window.logger?.info("[login] success");
     } else {
-      const msg = t("invalid_credentials");
-      setErr(msg);
+      setErr(t("invalid_credentials"));
       window.logger?.warn("[login] failed", { username });
     }
   };
@@ -62,45 +49,68 @@ export default function Login() {
   return (
     <div className="min-h-screen grid place-items-center bg-gray-100 p-4">
       <form
+        ref={formRef}
         onSubmit={onSubmit}
         className="relative w-full max-w-md bg-white p-8 rounded-2xl shadow text-center"
+        autoComplete="on"
       >
-        {/* ปุ่มเปลี่ยนภาษา มุมขวาบน */}
+        {/* เปลี่ยนภาษา */}
         <div className="absolute right-4 top-4">
           <LanguageSwitcher />
         </div>
 
         {/* โลโก้ */}
-        <img
+        {/* <img
           src={logo}
           alt="Logo"
           className="w-32 h-auto mx-auto mb-4 select-none"
           draggable={false}
-        />
+        /> */}
+
+        <LogoSVG className="w-32 h-auto mx-auto mb-4 select-none" /> {/* ✅ โลโก้ SCG */}
 
         <h1 className="text-2xl font-semibold mb-4">{t("login_title")}</h1>
 
+        {/* Username */}
         <label className="block text-left">
           <span className="text-sm">{t("username")}</span>
           <input
             name="username"
+            required
+            autoFocus
+            autoComplete="username"
             className="mt-1 w-full rounded-lg border px-3 py-2"
             placeholder={t("username_placeholder")}
           />
         </label>
 
+        {/* Password + toggle */}
         <label className="block text-left mt-3">
           <span className="text-sm">{t("password")}</span>
-          <input
-            name="password"
-            type="password"
-            className="mt-1 w-full rounded-lg border px-3 py-2"
-            placeholder={t("password_placeholder")}
-          />
+          <div className="mt-1 relative">
+            <input
+              name="password"
+              required
+              type={showPw ? "text" : "password"}
+              autoComplete="current-password"
+              className="w-full rounded-lg border px-3 py-2 pr-20"
+              placeholder={t("password_placeholder")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw(v => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded border hover:bg-gray-50"
+              tabIndex={-1}
+            >
+              {showPw ? "Hide" : "Show"}
+            </button>
+          </div>
         </label>
 
+        {/* Error */}
         {err && <div className="mt-3 text-sm text-red-600">{err}</div>}
 
+        {/* Submit */}
         <button
           disabled={loading}
           className="mt-5 w-full rounded-lg bg-blue-600 text-white py-2 hover:bg-blue-700 disabled:opacity-60"

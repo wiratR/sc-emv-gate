@@ -1,10 +1,11 @@
 import { defineConfig } from 'vite';
 import path from 'path';
 import react from '@vitejs/plugin-react';
+import svgr from "vite-plugin-svgr";
 
 export default defineConfig({
   root: './src',
-  plugins: [react()], // ← เอา tsconfigPaths ออก
+  plugins: [react(), svgr()], // ← เอา tsconfigPaths ออก
   build: {
     outDir: '../dist',
     emptyOutDir: true
