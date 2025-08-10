@@ -5,7 +5,7 @@ declare module "*.svg?react" {
   >;
   export default Component;
 }
-declare module "*.svg?url" {
+declare module "*.svg" {
   const src: string;
   export default src;
 }

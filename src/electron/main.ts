@@ -1,4 +1,5 @@
-import { BrowserWindow, app, shell } from "electron";
+// src/electron/main.ts
+import { BrowserWindow, app, ipcMain, session, shell } from "electron";
 
 import { initLogger } from "./logging";
 import { loadConfig } from "./config";
@@ -12,47 +13,81 @@ import url from "url";
 let win: BrowserWindow | null = null;
 const getWindow = () => win;
 
+/** แปลง deviceCommunicationPath → path ของไฟล์ JSON จริง (ถ้าเป็นโฟลเดอร์จะเติม device-communication.json ให้) */
 function resolveDeviceFilePath(deviceCommunicationPath: string | undefined, configPathUsed: string) {
   if (!deviceCommunicationPath) return undefined;
 
-  // baseDir: ถ้าอ่าน config จากไฟล์ ใช้โฟลเดอร์นั้น, ถ้าใช้ defaults → โปรเจกต์รูท (dist-electron/..)
   const baseDir =
     configPathUsed !== "(defaults)"
       ? path.dirname(configPathUsed)
-      : path.join(__dirname, "..");
+      : path.join(__dirname, ".."); // dist-electron/.. (proj root ตอนแพ็ก)
 
   const raw = path.isAbsolute(deviceCommunicationPath)
     ? deviceCommunicationPath
     : path.join(baseDir, deviceCommunicationPath);
 
-  // ถ้าเป็นโฟลเดอร์ → เติมชื่อไฟล์มาตรฐาน
+  const fs = require("fs") as typeof import("fs");
   const looksLikeDir =
     raw.endsWith(path.sep) ||
-    !path.extname(raw) || // ไม่มีนามสกุล → น่าจะเป็นโฟลเดอร์
-    // crude check: มีอยู่จริงและเป็น directory
-    (require("fs").existsSync(raw) && require("fs").statSync(raw).isDirectory());
+    !path.extname(raw) ||
+    (fs.existsSync(raw) && fs.statSync(raw).isDirectory());
 
   return looksLikeDir ? path.join(raw, "device-communication.json") : raw;
 }
 
-function createWindow() {
-  // ── Load config ───────────────────────────────────────────────────────────────
+/** ล้าง session/caches ของ Chromium */
+async function clearAppSession() {
+  const ses = session.defaultSession;
+  await ses.clearStorageData({
+    storages: [
+      // "appcache",
+      "cookies",
+      "filesystem",
+      "indexdb",
+      "localstorage",
+      "shadercache",
+      "websql",
+      "serviceworkers",
+      "cachestorage",
+    ],
+  });
+  await ses.clearCache();
+  console.log("[main] Cleared session data");
+}
+
+/** ให้ renderer สั่งล้าง session ได้ */
+ipcMain.handle("clear-session", async () => {
+  try {
+    await clearAppSession();
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+});
+
+async function createWindow() {
+  // ── Load config ──────────────────────────────────────────────
   const { config, pathUsed } = loadConfig();
   const isDev = config.environment === "development";
 
-  // ── Init logger, DB, IPC ─────────────────────────────────────────────────────
+  // ── Init logger, DB, IPC ─────────────────────────────────────
   const logger = initLogger();
   const db = openDB(logger);
 
   setupAuthIPC(db);
   setupConfigIPC(logger);
 
-  // deviceCommunicationPath → ไฟล์ JSON จริง
+  // deviceCommunicationPath → ไฟล์ JSON จริง & ตั้ง IPC ของ devices
   const deviceFilePath = resolveDeviceFilePath(config.deviceCommunicationPath, pathUsed);
   setupDeviceIPC(getWindow, deviceFilePath);
   console.log("[main] debug deviceFile Path:", deviceFilePath);
 
-  // ── Create BrowserWindow ──────────────────────────────────────────────────────
+  // ✅ กันพลาดใน dev: ล้างเศษ session ก่อนสร้างหน้าต่าง
+  if (isDev) {
+    await clearAppSession();
+  }
+
+  // ── Create BrowserWindow ─────────────────────────────────────
   win = new BrowserWindow({
     width: 1100,
     height: 800,
@@ -66,7 +101,7 @@ function createWindow() {
     },
   });
 
-  // เปิดลิงก์ภายนอกด้วย browser
+  // เปิดลิงก์ภายนอกด้วย default browser
   win.webContents.setWindowOpenHandler(({ url: target }) => {
     if (/^https?:\/\//i.test(target)) {
       shell.openExternal(target);
@@ -85,7 +120,7 @@ function createWindow() {
     if (!ok) e.preventDefault();
   });
 
-  // ── Load renderer (React) ─────────────────────────────────────────────────────
+  // ── Load renderer (React) ────────────────────────────────────
   if (isDev) {
     console.log("[config] Loaded from:", pathUsed);
     console.log("[config] environment =", config.environment);
@@ -107,22 +142,20 @@ function createWindow() {
     win.loadURL(indexPath);
   }
 
-  // ── Diagnostics / Logging ─────────────────────────────────────────────────────
+  // ── Diagnostics / Logging ────────────────────────────────────
   win.webContents.on("did-fail-load", (_e, code, desc, theUrl) => {
     console.error("[did-fail-load]", code, desc, theUrl);
   });
 
   win.webContents.on("console-message", (_e, level, msg, line, sourceId) => {
-    if (sourceId?.startsWith("devtools://")) return;
+    if (sourceId?.startsWith("devtools://")) return; // ตัด log ภายใน DevTools เอง
     console.log(`[renderer:${level}]`, msg, `@${sourceId}:${line}`);
   });
 
   win.on("unresponsive", () => console.error("[window] unresponsive"));
 
   win.once("ready-to-show", () => {
-    if (win && !win.isDestroyed()) {
-      win.show();
-    }
+    if (win && !win.isDestroyed()) win.show();
   });
 
   win.on("closed", () => {
@@ -132,8 +165,9 @@ function createWindow() {
   console.log("[app] ready");
 }
 
-// ── Single-instance lock ────────────────────────────────────────────────────────
+// ── Single-instance lock ───────────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();
+
 if (!gotLock) {
   app.quit();
 } else {
@@ -146,13 +180,22 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
-    createWindow();
+    void createWindow();
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      if (BrowserWindow.getAllWindows().length === 0) void createWindow();
     });
   });
 
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin") app.quit();
+  });
+
+  // ✅ เคลียร์ session/caches อัตโนมัติก่อนปิดแอปทุกครั้ง
+  app.on("before-quit", async () => {
+    try {
+      await clearAppSession();
+    } catch (err) {
+      console.error("[main] Failed to clear session data:", err);
+    }
   });
 }

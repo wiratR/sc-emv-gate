@@ -15,7 +15,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    window.logger?.info("[renderer] Entered Settings page");
+    window.logger?.info("[settings] mounted");
     (async () => {
       const cfg = await window.api?.getConfig();
       const info = await window.api?.getLogInfo();
@@ -24,30 +24,13 @@ export default function Settings() {
     })();
   }, []);
 
-  const onSave = async () => {
-    setSaving(true);
-    const res = await window.api?.updateConfig({ logLevel: level });
-    setSaving(false);
-    if (!res?.ok) alert(res?.error || "Save failed");
-  };
-
-  const openFolder = async () => {
-    const res = await window.api?.openLogsFolder();
-    if (!res?.ok) alert("Cannot open logs folder");
-  };
-
-  if (user?.role !== "admin") return null;
-
   return (
     <div className="min-h-screen bg-white">
-      {/* ใช้ Header กลาง — ซ่อน station info ในหน้า Settings */}
       <Header />
-
       <main className="mx-auto max-w-3xl p-6">
         <h1 className="text-2xl font-semibold">Settings</h1>
 
         <section className="mt-6 p-4 bg-white rounded-2xl border shadow-sm">
-          {/* Log level */}
           <div className="flex items-center justify-between gap-4">
             <label className="text-sm">Log Level</label>
             <select
@@ -55,31 +38,34 @@ export default function Settings() {
               onChange={(e) => setLevel(e.target.value as Level)}
               className="border rounded-lg px-3 py-2"
             >
-              {LEVELS.map((l) => (
-                <option key={l} value={l}>
-                  {l.toUpperCase()}
-                </option>
-              ))}
+              {LEVELS.map((l) => <option key={l} value={l}>{l.toUpperCase()}</option>)}
             </select>
           </div>
 
-          {/* Log info */}
           <div className="mt-4 text-sm text-gray-600">
             <div>Log dir: <code>{logDir}</code></div>
             <div>Current file: <code>{logFile}</code></div>
           </div>
 
-          {/* Actions */}
           <div className="mt-6 flex gap-3">
             <button
-              onClick={onSave}
+              onClick={async () => {
+                setSaving(true);
+                const res = await window.api?.updateConfig({ logLevel: level });
+                setSaving(false);
+                if (!res?.ok) alert(res?.error || "Save failed");
+              }}
               disabled={saving}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save"}
             </button>
+
             <button
-              onClick={openFolder}
+              onClick={async () => {
+                const res = await window.api?.openLogsFolder();
+                if (!res?.ok) alert("Cannot open logs folder");
+              }}
               className="px-4 py-2 rounded-lg border hover:bg-gray-50"
             >
               Open Logs Folder

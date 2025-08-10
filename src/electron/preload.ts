@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("api", {
   // ✅ เพิ่มสองตัวนี้
   getLogInfo: () => ipcRenderer.invoke("log:info"),
   openLogsFolder: () => ipcRenderer.invoke("log:open-folder"),  
+  clearSession: () => ipcRenderer.invoke("clear-session"),
 });
 
 contextBridge.exposeInMainWorld("devices", {
@@ -53,6 +54,7 @@ declare global {
       login: (u: string, p: string) => Promise<{ ok: boolean; user?: { id:number; username:string; role:string }; error?: string }>;
       openLogsFolder: () => Promise<{ ok:boolean; logDir:string }>;
       getLogInfo: () => Promise<{ ok:boolean; minLevel:string; logFile:string; logDir:string }>;
+      clearSession: () => Promise<{ ok: boolean; error?: string }>;
     };
     devices?: {
       getDevices: () => Promise<{ ok: boolean; devices: any[]; path: string }>;

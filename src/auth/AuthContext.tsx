@@ -3,44 +3,60 @@ import React, { createContext, useContext, useState } from "react";
 
 type Role = "admin" | "staff" | "maintenance";
 type User = { username: string; role: Role } | null;
+type LoginResult = { ok: boolean; user?: Exclude<User, null> };
 
 type AuthCtx = {
   user: User;
-  login: (u: string, p: string) => Promise<boolean>;
+  login: (u: string, p: string, remember?: boolean) => Promise<LoginResult>;
   logout: () => void;
 };
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // ❌ ไม่อ่าน/เขียน localStorage → ไม่จำ session
   const [user, setUser] = useState<User>(null);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    // Electron (IPC) เท่านั้น
-    if (typeof window !== "undefined" && window.api?.login) {
-      try {
+  const login = async (username: string, password: string, remember = false): Promise<LoginResult> => {
+    try {
+      if (typeof window !== "undefined" && window.api?.login) {
         const res = await window.api.login(username, password);
-        if (res?.ok && res.user) {
-          const u: User = { username: res.user.username, role: res.user.role as Role };
-          setUser(u); // ✅ แค่อยู่ใน memory
-          return true;
+        if (res.ok && res.user) {
+          const u = { username: res.user.username, role: res.user.role as Role };
+          setUser(u);
+          // remember → localStorage, ไม่งั้น sessionStorage (optional)
+          try {
+            const store = remember ? localStorage : sessionStorage;
+            store.setItem("auth_user", JSON.stringify(u));
+          } catch {}
+          window.logger?.info?.("[auth] login success", { username: u.username, role: u.role });
+          return { ok: true, user: u };
         }
-        return false;
-      } catch (e) {
-        window.logger?.error?.("[auth] login error", e as any);
-        return false;
+        return { ok: false };
       }
+
+      // (เว็บ fallback ถ้าจำเป็น)
+      // const ok = username.trim() !== "" && password === "1234";
+      // if (ok) {
+      //   const u: Exclude<User, null> = { username, role: "staff" };
+      //   setUser(u);
+      //   (remember ? localStorage : sessionStorage).setItem("auth_user", JSON.stringify(u));
+      //   return { ok: true, user: u };
+      // }
+      return { ok: false };
+    } catch (e) {
+      window.logger?.error?.("[auth] login error", e);
+      return { ok: false };
     }
-    // ไม่มี IPC → ไม่รองรับ login บนเว็บ
-    return false;
   };
 
   const logout = () => {
     if (user) window.logger?.info?.("[auth] logout", { username: user.username });
-    setUser(null); // ✅ แค่ล้าง state ใน memory
-    // ถ้ามี main process จัดการ token/อะไรเพิ่มเติม ให้เรียก window.api?.logout?.() ที่นี่ได้
-    // window.api?.logout?.();
+    setUser(null);
+    try {
+      localStorage.removeItem("auth_user");
+      sessionStorage.removeItem("auth_user");
+    } catch {}
+    window.api?.clearSession?.().catch(() => {});
   };
 
   return <Ctx.Provider value={{ user, login, logout }}>{children}</Ctx.Provider>;

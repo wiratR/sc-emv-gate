@@ -1,124 +1,79 @@
-// src/pages/Home.tsx
+// src/components/Header.tsx
+import { useEffect, useState } from "react";
 
-import { Device, Side } from "@/models/device";
-import { useEffect, useMemo, useState } from "react";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import logoUrl from "@/assets/logo.svg"; // ใช้เป็น URL string ปลอดภัยสุด
+import { useAuth } from "@/auth/AuthContext";
 
-import DeviceCard from "@/components/DeviceCard";
-import Header from "@/components/Header";
-import { STATUS_ORDER } from "@/utils/status";
-import SummaryCard from "@/components/SummaryCard";
+type Props = { showStationInfo?: boolean };
 
-export default function Home() {
-  // ───────────────────────── State ─────────────────────────
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [active, setActive] = useState<Side>("north");
-  const [loading, setLoading] = useState(true);
+export default function Header({ showStationInfo = true }: Props) {
+  const { user, logout } = useAuth();
+  const [stationName, setStationName] = useState("");
+  const [stationId, setStationId] = useState("");
+  const [stationIp, setStationIp] = useState("");
 
-  // ───────────────────────── Effects ─────────────────────────
   useEffect(() => {
-    let disposed = false;
-
+    let alive = true;
     (async () => {
       try {
-        // โหลดอุปกรณ์ครั้งแรก
-        const res = await window.devices?.getDevices();
-        if (!disposed && res?.ok) {
-          setDevices(res.devices as Device[]);
-          window.logger?.info("[home] loaded devices", { count: res.devices.length });
+        const cfg = await window.api?.getConfig?.();
+        if (alive && cfg?.ok) {
+          setStationName(cfg.config.stationName ?? "");
+          setStationId(cfg.config.stationId ?? "");
+          setStationIp(cfg.config.stationIp ?? "");
         }
       } catch (e) {
-        window.logger?.error?.("[home] load devices error", e);
-      } finally {
-        if (!disposed) setLoading(false);
+        window.logger?.warn?.("[header] load config failed", String(e));
       }
     })();
-
-    // subscribe เมื่อไฟล์อุปกรณ์มีการอัปเดต
-    const unsubscribe = window.devices?.onUpdated?.((list) => {
-      setDevices(list as Device[]);
-      window.logger?.info("[home] devices updated", { count: list.length });
-    });
-
-    return () => {
-      disposed = true;
-      unsubscribe && unsubscribe();
-    };
+    return () => { alive = false; };
   }, []);
 
-  // ───────────────────────── Derived ─────────────────────────
-  const { north, south, counts } = useMemo(() => {
-    const sortByStatus = (a: Device, b: Device) =>
-      STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
-
-    const n = devices.filter(d => d.side === "north").sort(sortByStatus);
-    const s = devices.filter(d => d.side === "south").sort(sortByStatus);
-
-    const c = {
-      total: devices.length,
-      online: devices.filter(d => d.status === "online").length,
-      maintenance: devices.filter(d => d.status === "maintenance").length,
-      fault: devices.filter(d => d.status === "fault").length,
-      offline: devices.filter(d => d.status === "offline").length,
-    };
-
-    return { north: n, south: s, counts: c };
-  }, [devices]);
-
-  const list = active === "north" ? north : south;
-
-  // ───────────────────────── Render ─────────────────────────
   return (
-    <div className="bg-white min-h-screen">
-      {/* Header ส่วนกลางใช้ซ้ำทุกหน้า */}
-      <Header />
+    <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
+      <div className="mx-auto max-w-7xl px-6 py-3">
+        <div className="flex items-center justify-between gap-4">
+          {/* Left: Logo + Title */}
+          <div className="flex items-center gap-3">
+            <img
+              src={logoUrl}
+              alt="Logo"
+              className="w-10 h-10"
+              draggable={false}
+            />
+            <div>
+              <div className="text-base font-semibold">EMV Gate Monitoring</div>
+              <div className="text-xs text-gray-500">North / South device health</div>
+            </div>
+          </div>
 
-      {/* Body */}
-      <main className="mx-auto max-w-7xl p-6 space-y-6">
-        {/* Summary */}
-        <section className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <SummaryCard label="Total" value={counts.total} />
-          <SummaryCard label="Online" value={counts.online} tone="online" />
-          <SummaryCard label="Maintenance" value={counts.maintenance} tone="maintenance" />
-          <SummaryCard label="Fault" value={counts.fault} tone="fault" />
-          <SummaryCard label="Offline" value={counts.offline} tone="offline" />
-        </section>
-
-        {/* Tabs North/South */}
-        <section className="flex gap-2">
-          <button
-            onClick={() => setActive("north")}
-            className={`px-4 py-2 rounded-xl border ${
-              active === "north"
-                ? "bg-blue-600 text-white border-blue-600"
-                : "hover:bg-gray-50"
-            }`}
-          >
-            North ({north.length})
-          </button>
-          <button
-            onClick={() => setActive("south")}
-            className={`px-4 py-2 rounded-xl border ${
-              active === "south"
-                ? "bg-blue-600 text-white border-blue-600"
-                : "hover:bg-gray-50"
-            }`}
-          >
-            South ({south.length})
-          </button>
-        </section>
-
-        {/* Device List */}
-        <section className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {loading && <div className="text-sm text-gray-500">Loading devices…</div>}
-
-          {!loading && list.length === 0 && (
-            <div className="text-sm text-gray-500">No devices on this side.</div>
+          {/* Center: Station Info */}
+          {showStationInfo && (
+            <div className="text-center">
+              <div className="font-semibold">
+                {stationName || "-"} {stationId ? `(ID: ${stationId})` : ""}
+              </div>
+              <div className="font-semibold">{stationIp || "-"}</div>
+            </div>
           )}
 
-          {!loading &&
-            list.map((d) => <DeviceCard key={d.id} device={d} />)}
-        </section>
-      </main>
+          {/* Right: user + language + logout */}
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-right">
+              <div className="font-semibold">{user?.username || "Guest"}</div>
+              <div className="text-xs text-gray-500">{user?.role?.toUpperCase?.() || ""}</div>
+            </div>
+            <LanguageSwitcher />
+            <button
+              onClick={logout}
+              className="px-3 py-1 rounded-lg bg-red-500 text-white text-sm hover:bg-red-600"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

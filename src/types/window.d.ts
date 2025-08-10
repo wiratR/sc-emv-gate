@@ -39,6 +39,8 @@ declare global {
       // log
       getLogInfo: () => Promise<{ ok:boolean; minLevel:string; logFile:string; logDir:string }>;
       openLogsFolder: () => Promise<{ ok:boolean; logDir:string }>;
+
+      clearSession: () => Promise<{ ok: boolean; error?: string }>;
     };
     devices?: {
       getDevices: () => Promise<{ ok: boolean; devices: any[]; path: string }>;
