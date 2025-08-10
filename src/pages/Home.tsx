@@ -4,81 +4,99 @@ import { Device, Side } from "@/models/device";
 import { useEffect, useMemo, useState } from "react";
 
 import DeviceCard from "@/components/DeviceCard";
+import DeviceControlModal from "@/components/DeviceControlModal";
 import Header from "@/components/Header";
 import { STATUS_ORDER } from "@/utils/status";
 import SummaryCard from "@/components/SummaryCard";
-import { useAuth } from "@/auth/AuthContext";
 
 export default function Home() {
-  const { user, logout } = useAuth();
-
+  // ── State ───────────────────────────────────────────────────
   const [devices, setDevices] = useState<Device[]>([]);
   const [active, setActive] = useState<Side>("north");
-  const [stationName, setStationName] = useState<string>("");
-  const [stationId, setStationId] = useState<string>("");
-  const [stationIp, setStationIp] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Device | null>(null);
 
+  // ── Effects: load + subscribe updates ───────────────────────
   useEffect(() => {
-    (async () => {
-      const res = await window.devices?.getDevices();
-      if (res?.ok) setDevices(res.devices as Device[]);
+    let disposed = false;
 
-      const cfg = await window.api?.getConfig?.();
-      if (cfg?.ok) {
-        setStationName(cfg.config.stationName ?? "");
-        setStationId(cfg.config.stationId ?? "");
-        setStationIp(cfg.config.stationIp ?? "");
+    (async () => {
+      try {
+        const res = await window.devices?.getDevices();
+        if (!disposed && res?.ok) {
+          setDevices(res.devices as Device[]);
+          window.logger?.info?.("[home] loaded devices", {
+            count: res.devices.length,
+            path: res.path,
+          });
+        }
+      } catch (e) {
+        window.logger?.error?.("[home] load devices error", e);
+      } finally {
+        if (!disposed) setLoading(false);
       }
     })();
 
-    const dispose = window.devices?.onUpdated?.((list) => {
+    const unsubscribe = window.devices?.onUpdated?.((list) => {
       setDevices(list as Device[]);
+      window.logger?.info?.("[home] devices updated", { count: list.length });
     });
-    return () => dispose && dispose();
+
+    return () => {
+      disposed = true;
+      unsubscribe && unsubscribe();
+    };
   }, []);
 
+  // ── Derived: split/sort + counts ────────────────────────────
   const { north, south, counts } = useMemo(() => {
-    const n = devices.filter((d) => d.side === "north").sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
-    const s = devices.filter((d) => d.side === "south").sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
+    const byStatus = (a: Device, b: Device) =>
+      STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+
+    const n = devices.filter((d) => d.side === "north").sort(byStatus);
+    const s = devices.filter((d) => d.side === "south").sort(byStatus);
 
     const c = {
       total: devices.length,
       online: devices.filter((d) => d.status === "online").length,
-      offline: devices.filter((d) => d.status === "offline").length,
-      fault: devices.filter((d) => d.status === "fault").length,
       maintenance: devices.filter((d) => d.status === "maintenance").length,
+      fault: devices.filter((d) => d.status === "fault").length,
+      offline: devices.filter((d) => d.status === "offline").length,
     };
     return { north: n, south: s, counts: c };
   }, [devices]);
 
   const list = active === "north" ? north : south;
 
+  // ── Render ──────────────────────────────────────────────────
   return (
     <div className="bg-white min-h-screen">
-      {/* Header */}
-      <Header />  
-      {/* 
-        ถ้าหน้าไหนไม่อยากโชว์ station info (เช่นหน้า Login): 
-        <Header showStationInfo={false} />
-      */}
+      {/* Header กลาง (อ่าน station/user/ภาษา ภายในเอง) */}
+      <Header />
 
       {/* Body */}
-      <div className="mx-auto max-w-7xl p-6 space-y-6">
-        {/* Summary */}
+      <main className="mx-auto max-w-7xl p-6 space-y-6">
+        {/* Summary cards */}
         <section className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <SummaryCard label="Total" value={counts.total} />
           <SummaryCard label="Online" value={counts.online} tone="online" />
-          <SummaryCard label="Maintenance" value={counts.maintenance} tone="maintenance" />
+          <SummaryCard
+            label="Maintenance"
+            value={counts.maintenance}
+            tone="maintenance"
+          />
           <SummaryCard label="Fault" value={counts.fault} tone="fault" />
           <SummaryCard label="Offline" value={counts.offline} tone="offline" />
         </section>
 
-        {/* Tabs */}
+        {/* Tabs North/South */}
         <section className="flex gap-2">
           <button
             onClick={() => setActive("north")}
             className={`px-4 py-2 rounded-xl border ${
-              active === "north" ? "bg-blue-600 text-white border-blue-600" : "hover:bg-gray-50"
+              active === "north"
+                ? "bg-blue-600 text-white border-blue-600"
+                : "hover:bg-gray-50"
             }`}
           >
             North ({north.length})
@@ -86,23 +104,43 @@ export default function Home() {
           <button
             onClick={() => setActive("south")}
             className={`px-4 py-2 rounded-xl border ${
-              active === "south" ? "bg-blue-600 text-white border-blue-600" : "hover:bg-gray-50"
+              active === "south"
+                ? "bg-blue-600 text-white border-blue-600"
+                : "hover:bg-gray-50"
             }`}
           >
             South ({south.length})
           </button>
         </section>
 
-        {/* Device List */}
+        {/* Device list */}
         <section className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {list.map((d) => (
-            <DeviceCard key={d.id} device={d} />
-          ))}
-          {list.length === 0 && (
-            <div className="text-sm text-gray-500">No devices on this side.</div>
+          {loading && (
+            <div className="text-sm text-gray-500">Loading devices…</div>
           )}
+          {!loading && list.length === 0 && (
+            <div className="text-sm text-gray-500">
+              No devices on this side.
+            </div>
+          )}
+          {!loading &&
+            list.map((d) => (
+              <DeviceCard key={d.id} device={d} onClick={() => setSelected(d)} />
+            ))}
         </section>
-      </div>
+      </main>
+
+      {/* Popup: Gate Operation Control */}
+      <DeviceControlModal
+        open={!!selected}
+        device={selected}
+        onClose={() => setSelected(null)}
+        onEnter={(dev, op) => {
+          // hook ไว้ต่อ IPC จริง
+          window.logger?.info?.("[device] submit command", { id: dev.id, op });
+          // await window.devices?.sendGateCommand?.({ deviceId: dev.id, command: op });
+        }}
+      />
     </div>
   );
 }
