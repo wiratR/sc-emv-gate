@@ -36,6 +36,29 @@ contextBridge.exposeInMainWorld("devices", {
     // คืน disposer ให้ถอด listener ได้
     return () => ipcRenderer.removeListener("devices:updated", wrapped);
   },
+  reboot: (deviceId: string) => ipcRenderer.invoke("devices:reboot", deviceId),
+  openSSH: (ip: string) => ipcRenderer.invoke("devices:ssh", ip), 
+});
+
+contextBridge.exposeInMainWorld("terminal", {
+  create: (opts?: { sshHost?: string; cols?: number; rows?: number; cwd?: string }) =>
+    ipcRenderer.invoke("terminal:create", opts),
+  write: (id: string, data: string) => ipcRenderer.send("terminal:write", id, data),
+  resize: (id: string, cols: number, rows: number) => ipcRenderer.send("terminal:resize", id, cols, rows),
+  kill: (id: string) => ipcRenderer.invoke("terminal:kill", id),
+
+  onData: (id: string, cb: (chunk: string) => void) => {
+    const ch = `terminal:data:${id}`;
+    const fn = (_: any, data: string) => cb(data);
+    ipcRenderer.on(ch, fn);
+    return () => ipcRenderer.removeListener(ch, fn);
+  },
+  onExit: (id: string, cb: () => void) => {
+    const ch = `terminal:exit:${id}`;
+    const fn = () => cb();
+    ipcRenderer.on(ch, fn);
+    return () => ipcRenderer.removeListener(ch, fn);
+  },
 });
 
 // Types (optional)

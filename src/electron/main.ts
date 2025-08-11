@@ -8,6 +8,7 @@ import path from "path";
 import { setupAuthIPC } from "./ipc/auth";
 import { setupConfigIPC } from "./ipc/config";
 import { setupDeviceIPC } from "./ipc/device";
+import { setupTerminalIPC } from "./ipc/terminal";
 import url from "url";
 
 let win: BrowserWindow | null = null;
@@ -80,6 +81,7 @@ async function createWindow() {
   // deviceCommunicationPath → ไฟล์ JSON จริง & ตั้ง IPC ของ devices
   const deviceFilePath = resolveDeviceFilePath(config.deviceCommunicationPath, pathUsed);
   setupDeviceIPC(getWindow, deviceFilePath);
+  setupTerminalIPC();
   console.log("[main] debug deviceFile Path:", deviceFilePath);
 
   // ✅ กันพลาดใน dev: ล้างเศษ session ก่อนสร้างหน้าต่าง

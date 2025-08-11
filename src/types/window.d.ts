@@ -45,6 +45,18 @@ declare global {
     devices?: {
       getDevices: () => Promise<{ ok: boolean; devices: any[]; path: string }>;
       onUpdated: (handler: (list: any[]) => void) => () => void; // returns unsubscribe
+      reboot?: (deviceId: string) => Promise<{ ok: boolean; error?: string }>;
+      openSSH?: (ip: string) => Promise<{ ok: boolean; error?: string }>;
+      reboot?: (deviceId: string) => Promise<{ ok: boolean; error?: string }>;
+      openSSH?: (ip: string) => Promise<{ ok: boolean; error?: string }>;
+    };
+    terminal?: {
+      create: (opts?: { sshHost?: string; cols?: number; rows?: number; cwd?: string }) => Promise<{ ok: boolean; id?: string; error?: string }>;
+      write: (id: string, data: string) => void;
+      resize: (id: string, cols: number, rows: number) => void;
+      kill: (id: string) => Promise<{ ok: boolean }>;
+      onData: (id: string, cb: (data: string) => void) => () => void;
+      onExit: (id: string, cb: () => void) => () => void;
     };
   }
 }
