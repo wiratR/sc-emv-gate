@@ -8,6 +8,8 @@ import DeviceControlModal from "@/components/DeviceControlModal";
 import Header from "@/components/Header";
 import { STATUS_ORDER } from "@/utils/status";
 import SummaryCard from "@/components/SummaryCard";
+import { sideLabel } from "@/utils/side";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export default function Home() {
   // ── State ───────────────────────────────────────────────────
@@ -15,6 +17,7 @@ export default function Home() {
   const [active, setActive] = useState<Side>("north");
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Device | null>(null);
+  const { lang } = useI18n();
 
   // ── Effects: load + subscribe updates ───────────────────────
   useEffect(() => {
@@ -94,12 +97,11 @@ export default function Home() {
           <button
             onClick={() => setActive("north")}
             className={`px-4 py-2 rounded-xl border ${
-              active === "north"
-                ? "bg-blue-600 text-white border-blue-600"
-                : "hover:bg-gray-50"
-            }`}
+              active === "north" 
+                ? "bg-blue-600 text-white border-blue-600" 
+                : "hover:bg-gray-50"}`}
           >
-            North ({north.length})
+            {sideLabel(lang, "north")} ({north.length})
           </button>
           <button
             onClick={() => setActive("south")}
@@ -109,7 +111,7 @@ export default function Home() {
                 : "hover:bg-gray-50"
             }`}
           >
-            South ({south.length})
+            {sideLabel(lang, "south")} ({south.length})
           </button>
         </section>
 
