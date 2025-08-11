@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import DeviceCard from "@/components/DeviceCard";
 import DeviceControlModal from "@/components/DeviceControlModal";
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { STATUS_ORDER } from "@/utils/status";
 import SummaryCard from "@/components/SummaryCard";
@@ -131,6 +132,8 @@ export default function Home() {
             ))}
         </section>
       </main>
+
+      <Footer />
 
       {/* Popup: Gate Operation Control */}
       <DeviceControlModal

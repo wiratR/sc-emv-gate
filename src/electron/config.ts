@@ -6,18 +6,21 @@ import path from "path";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
+export type StationName =
+  | string
+  | { en?: string; th?: string };
+
 export type AppConfig = {
   databasePath: string;
   logsPath: string;
-  logLevel: LogLevel;
+  logLevel: "debug" | "info" | "warn" | "error";
   logsRetentionDays: number;
-  environment: "development" | "production" | string;
-
-  // ⬇️ ใหม่ (optional)
-  stationName?: string;
-  stationId?: string;
+  environment: "development" | "production";
+  deviceCommunicationPath?: string;
   stationIp?: string;
-  deviceCommunicationPath?: string; // ใช้ชื่อคีย์ตามไฟล์ของคุณ
+  stationName?: StationName;
+  stationId?: string;
+  fullScreen?: boolean;        // 👈 เพิ่ม
 };
 
 // เพิ่ม default (ตามความเหมาะสม)
@@ -31,6 +34,7 @@ const DEFAULTS: AppConfig = {
   stationId: "",
   stationIp: "",
   deviceCommunicationPath: "./data",
+  fullScreen: false,           // 👈 เพิ่ม
 };
 
 let cached: AppConfig | undefined;
@@ -41,6 +45,16 @@ function resolveCandidatePaths() {
   const resourceCfg = path.join(process.resourcesPath || "", "config.json");
   const devCfg = path.join(__dirname, "../config.json");
   return [userDataCfg, resourceCfg, devCfg];
+}
+
+// ช่วยเลือกชื่อสถานีตามภาษา พร้อม fallback
+export function resolveStationName(
+  name: StationName | undefined,
+  lang: "en" | "th"
+): string {
+  if (!name) return "";
+  if (typeof name === "string") return name;
+  return name[lang] ?? name.en ?? name.th ?? "";
 }
 
 export function loadConfig(): { config: AppConfig; pathUsed: string } {

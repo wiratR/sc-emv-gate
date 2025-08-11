@@ -1,6 +1,8 @@
 // src/pages/Settings.tsx
+
 import { useEffect, useState } from "react";
 
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -26,7 +28,9 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Header */}
       <Header />
+      {/* Main Body */}
       <main className="mx-auto max-w-3xl p-6">
         <h1 className="text-2xl font-semibold">Settings</h1>
 
@@ -73,6 +77,8 @@ export default function Settings() {
           </div>
         </section>
       </main>
+      {/* footer */}
+      <Footer />
     </div>
   );
 }

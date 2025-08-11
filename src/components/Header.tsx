@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import type { StationName } from "@/electron/config";
 import logoUrl from "@/assets/logo.svg";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -11,8 +12,9 @@ type Props = { showStationInfo?: boolean };
 export default function Header({ showStationInfo = true }: Props) {
   const { user, logout } = useAuth();
   const { t } = useI18n();
+  const { lang } = useI18n();
 
-  const [stationName, setStationName] = useState("");
+  const [stationName, setStationName] = useState<StationName | undefined>();
   const [stationId, setStationId] = useState("");
   const [stationIp, setStationIp] = useState("");
 
@@ -25,13 +27,20 @@ export default function Header({ showStationInfo = true }: Props) {
           setStationName(cfg.config.stationName ?? "");
           setStationId(cfg.config.stationId ?? "");
           setStationIp(cfg.config.stationIp ?? "");
-        }
+        }        
       } catch (e) {
         window.logger?.warn?.("[header] load config failed", String(e));
       }
     })();
     return () => { alive = false; };
   }, []);
+
+
+  // เลือกชื่อสถานีตามภาษา
+  const stationLabel =
+    typeof stationName === "string"
+      ? stationName
+      : (stationName?.[lang] ?? stationName?.en ?? stationName?.th ?? "");
 
   return (
     <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
@@ -50,7 +59,7 @@ export default function Header({ showStationInfo = true }: Props) {
           {showStationInfo && (
             <div className="text-center">
               <div className="font-semibold">
-                {stationName || "-"} {stationId ? `(ID: ${stationId})` : ""}
+                {stationLabel || "-"} {stationId ? `(ID: ${stationId})` : ""}
               </div>
               <div className="font-semibold">{stationIp || "-"}</div>
             </div>

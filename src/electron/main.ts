@@ -1,8 +1,9 @@
 // src/electron/main.ts
+
 import { BrowserWindow, app, ipcMain, session, shell } from "electron";
+import { loadConfig, resolveStationName } from "./config";
 
 import { initLogger } from "./logging";
-import { loadConfig } from "./config";
 import { openDB } from "./db";
 import path from "path";
 import { setupAuthIPC } from "./ipc/auth";
@@ -83,6 +84,10 @@ async function createWindow() {
   setupDeviceIPC(getWindow, deviceFilePath);
   setupTerminalIPC();
   console.log("[main] debug deviceFile Path:", deviceFilePath);
+  const stationNameEN = resolveStationName(config.stationName, "en");
+  if (config.stationName || config.stationId) {
+    console.log("[config] station =", stationNameEN || "", config.stationId ?? "");
+  }
 
   // ✅ กันพลาดใน dev: ล้างเศษ session ก่อนสร้างหน้าต่าง
   if (isDev) {
@@ -93,7 +98,9 @@ async function createWindow() {
   win = new BrowserWindow({
     width: 1100,
     height: 800,
-    show: false,
+    fullscreen: !!config.fullScreen,   // 👈 อ่านจาก config
+    autoHideMenuBar: !!config.fullScreen,
+    // kiosk: true,           // (ทางเลือก) โหมดคีออส กดออกยาก เหมาะงานหน้าร้าน
     backgroundColor: "#000000",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -132,7 +139,7 @@ async function createWindow() {
       console.log("[config] station =", config.stationName ?? "", config.stationId ?? "");
     if (config.stationIp) console.log("[config] stationIp =", config.stationIp);
     if (deviceFilePath) console.log("[config] deviceFilePath =", deviceFilePath);
-
+    if (config.fullScreen) console.log ("[config] fullScreen =", config.fullScreen);
     console.log("[env] Dev mode → http://localhost:5173/#/login");
     win.loadURL("http://localhost:5173/#/login");
     // win.webContents.openDevTools({ mode: "detach" });
