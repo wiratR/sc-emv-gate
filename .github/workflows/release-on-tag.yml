@@ -49,6 +49,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Build macOS
         run: npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
@@ -95,6 +97,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Build Windows
         run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
@@ -154,6 +158,9 @@ jobs:
 
       - name: Build Linux
         run: npm run build:linux
+
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
