@@ -55,14 +55,20 @@ jobs:
       - name: Build macOS
         run: npm run build:mac
       
-      - name: Delete existing release if any
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: 🗑️ Delete existing release (if any)
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           TAG="${{ github.ref_name }}"
-          gh release delete "$TAG" -y || true
-          git push origin ":refs/tags/$TAG" || true
+          echo "TAG=$TAG"
+          # ถ้ามี release อยู่แล้วให้ลบก่อน (ไม่ error หากไม่มี)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Found existing release for $TAG, deleting..."
+            gh release delete "$TAG" -y
+          else
+            echo "No existing release for $TAG"
+          fi
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
@@ -114,14 +120,23 @@ jobs:
       - name: Build Windows
         run: npm run build:win
       
-      - name: Delete existing release if any
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: 🗑️ Delete existing release (if any) [Windows]
+        if: runner.os == 'Windows'
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          TAG="${{ github.ref_name }}"
-          gh release delete "$TAG" -y || true
-          git push origin ":refs/tags/$TAG" || true
+          $TAG = "${{ github.ref_name }}"
+          Write-Host "TAG=$TAG"
+
+          # เช็คว่ามี release ไหม
+          gh release view $TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Found existing release for $TAG, deleting..."
+            gh release delete $TAG -y
+          } else {
+            Write-Host "No existing release for $TAG"
+          }
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
@@ -187,14 +202,20 @@ jobs:
       - name: Build Linux
         run: npm run build:linux
 
-      - name: Delete existing release if any
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: 🗑️ Delete existing release (if any)
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           TAG="${{ github.ref_name }}"
-          gh release delete "$TAG" -y || true
-          git push origin ":refs/tags/$TAG" || true
+          echo "TAG=$TAG"
+          # ถ้ามี release อยู่แล้วให้ลบก่อน (ไม่ error หากไม่มี)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Found existing release for $TAG, deleting..."
+            gh release delete "$TAG" -y
+          else
+            echo "No existing release for $TAG"
+          fi
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
