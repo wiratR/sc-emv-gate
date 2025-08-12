@@ -82,20 +82,27 @@ jobs:
         with:
           python-version: '3.11'
 
+    # เลือก Python สำหรับ node-gyp (non-Windows)
       - name: Select Python for node-gyp (non-Windows)
         if: runner.os != 'Windows'
         run: |
-          echo "PYTHON=${{ env.pythonLocation }}/bin/python" >> $GITHUB_ENV
-          npm config set python "${{ env.pythonLocation }}/bin/python"
-          python --version
+          PY="$(which python3 || which python)"
+          echo "Using Python: $( $PY --version )"
+          # ตั้ง env vars ให้ node-gyp
+          echo "PYTHON=$PY" >> $GITHUB_ENV
+          echo "npm_config_python=$PY" >> $GITHUB_ENV
 
+      # เลือก Python สำหรับ node-gyp (Windows)
       - name: Select Python for node-gyp (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          echo "PYTHON=$env:pythonLocation\python.exe" >> $env:GITHUB_ENV
-          npm config set python "$env:pythonLocation\python.exe"
-          python --version
+          $PY = "$env:pythonLocation\python.exe"
+          Write-Host "Using Python: " & (& $PY --version)
+          # ตั้ง env vars ให้ node-gyp
+          echo "PYTHON=$PY" >> $env:GITHUB_ENV
+          echo "npm_config_python=$PY" >> $env:GITHUB_ENV
+
       # ------------------------------------------------------------
 
       # ติดตั้งแพ็กเกจแต่ “ไม่รัน postinstall”
