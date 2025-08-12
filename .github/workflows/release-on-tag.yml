@@ -22,6 +22,17 @@ jobs:
           node-version: 20
           cache: npm
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Point node-gyp to setup-python (macOS)
+        run: |
+          echo "Using pythonLocation: $pythonLocation"
+          echo "PYTHON=$pythonLocation/bin/python" >> $GITHUB_ENV
+          echo "npm_config_python=$pythonLocation/bin/python" >> $GITHUB_ENV
+          $pythonLocation/bin/python -m pip install --upgrade pip setuptools wheel
+
       - name: Cache Electron caches
         uses: actions/cache@v4
         with:
@@ -39,11 +50,9 @@ jobs:
           echo "Setting version to $VERSION"
           npm version "$VERSION" --no-git-tag-version
 
-      # ติดตั้งแบบไม่รัน postinstall (กันการ build native ก่อนเวลา)
       - name: Install deps (no scripts)
         run: npm ci --ignore-scripts
 
-      # build renderer + main + package
       - name: Build macOS
         run: npm run build:mac
 
@@ -55,7 +64,7 @@ jobs:
             dist/*.dmg
             dist/*.zip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
   build_windows:
     name: Windows build & release
@@ -67,6 +76,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Point node-gyp to setup-python (Windows)
+        shell: pwsh
+        run: |
+          $PY = "$env:pythonLocation\python.exe"
+          echo "PYTHON=$PY" >> $env:GITHUB_ENV
+          echo "npm_config_python=$PY" >> $env:GITHUB_ENV
+          & $PY -m pip install --upgrade pip setuptools wheel
 
       - name: Cache Electron caches
         uses: actions/cache@v4
@@ -97,7 +118,7 @@ jobs:
             dist/*.exe
             dist/*.zip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
   build_linux:
     name: Linux build & release
@@ -110,6 +131,19 @@ jobs:
           node-version: 20
           cache: npm
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system deps (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential python3 python3-distutils make g++ pkg-config \
+            libx11-dev libxkbfile-dev libsecret-1-dev \
+            rpm fakeroot dpkg
+          python3 -m pip install --user --upgrade pip setuptools wheel
+
       - name: Cache Electron caches
         uses: actions/cache@v4
         with:
@@ -117,14 +151,6 @@ jobs:
             ~/.cache/electron
             ~/.cache/electron-builder
           key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
-
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential python3 make g++ pkg-config \
-            libx11-dev libxkbfile-dev libsecret-1-dev \
-            rpm fakeroot dpkg
 
       - name: Set version from tag
         run: |
@@ -146,4 +172,4 @@ jobs:
             dist/*.AppImage
             dist/*.deb
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
