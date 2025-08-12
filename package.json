@@ -19,8 +19,8 @@
     "dev:main": "tsc -p tsconfig.electron.json --watch",
     "dev:electron": "wait-on http://localhost:5173 dist-electron/main.js && nodemon",
     "preview": "vite preview",
-    "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "postinstall": "electron-rebuild -f -w better-sqlite3 || true"
+    "rebuild": "electron-rebuild -f -w better-sqlite3 -w node-pty",
+    "postinstall": "electron-rebuild -f -w better-sqlite3 -w node-pty || true"
   },
   "build": {
     "appId": "com.example.sc-emv-gate",
@@ -35,7 +35,21 @@
     },
     "asar": true,
     "asarUnpack": [
-      "node_modules/better-sqlite3/**"
+      "node_modules/better-sqlite3/**",
+      "node_modules/node-pty/**"
+    ],
+    // (ออปชัน) ถ้าต้องการแพ็ก config/data ไปด้วย ให้ uncomment ด้านล่าง
+    "extraResources": [
+      {
+        "from": "config",
+        "to": "config",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "data",
+        "to": "data",
+        "filter": ["**/*"]
+      }
     ],
     "mac": {
       "category": "public.app-category.utilities",

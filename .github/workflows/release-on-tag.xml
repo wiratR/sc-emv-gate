@@ -1,143 +1,110 @@
 # .github/workflows/release-on-tag.yml
+
 name: Release on Tag
 
 on:
   push:
     tags:
-      - "v*"
+      - "v*"         # รันเฉพาะเมื่อมี tag ที่ขึ้นต้นด้วย v (เช่น v1.0.0)
+  workflow_dispatch:   # เผื่อกดรันเองได้ด้วย
 
 jobs:
-  meta:
-    name: Detect Release Type
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-      version: ${{ steps.meta.outputs.version }}
-      prerelease: ${{ steps.meta.outputs.prerelease }}
-    steps:
-      - id: meta
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
-          if echo "$TAG" | grep -Eiq -- '-(rc|beta|alpha)'; then
-            echo "prerelease=true" >> $GITHUB_OUTPUT
-          else
-            echo "prerelease=false" >> $GITHUB_OUTPUT
-          fi
-
   build:
-    name: Build (${{ matrix.os }})
-    needs: meta
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
         include:
           - os: macos-latest
-            build_script: build:mac      # <- ต้องมีใน package.json (electron-builder แนะนำ)
-            artifact_glob: "dist/**/*.dmg"
+            build_script: build:mac
+            artifacts: |
+              dist/*.dmg
+              dist/*.zip
           - os: windows-latest
             build_script: build:win
-            artifact_glob: "dist/**/*.exe"
-          # ถ้าอยาก build Linux ด้วย (ไม่แนบไฟล์) ให้ปลดคอมเมนต์ด้านล่าง
-          # - os: ubuntu-latest
-          #   build_script: build:linux
-          #   artifact_glob: "dist/**/*.AppImage"
+            artifacts: |
+              dist/*.exe
+              dist/*.zip
+          - os: ubuntu-latest
+            build_script: build:linux
+            artifacts: |
+              dist/*.AppImage
+              dist/*.deb
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      # (เลือกได้) cache ตัว electron / electron-builder เพื่อลดเวลาโหลด
+      - name: Cache Electron caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            C:\Users\runneradmin\AppData\Local\electron\Cache
+            C:\Users\runneradmin\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
 
-      # ===== (ออปชัน) เซ็นโค้ด/Notarize บน macOS ถ้ามี Secrets =====
-      # ตั้งค่าใน repo secrets: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID, CSC_LINK, CSC_KEY_PASSWORD
-      - name: Configure macOS signing env (optional)
+      # lib ที่ช่วย build บน Linux
+      - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxkbfile-dev libsecret-1-dev \
+                                  rpm fakeroot dpkg
+
+      # macOS: ถ้าไม่มี cert ให้บอก electron-builder ไม่ต้องเซ็น
+      - name: macOS codesign auto (no cert)
         if: runner.os == 'macOS'
-        run: |
-          echo "NOTARIZE=${{ secrets.APPLE_ID && secrets.APPLE_APP_SPECIFIC_PASSWORD && secrets.APPLE_TEAM_ID && 'true' || 'false' }}" >> $GITHUB_ENV
+        run: echo "CSC_IDENTITY_AUTO=true">> $GITHUB_ENV
+
+      - name: 🏷️ Set version from Git tag
         shell: bash
+        run: | TAG_VERSION=${{ github.ref_name }} VERSION=${TAG_VERSION#v}
+          echo "🔧 Setting version to $VERSION"
+          npm version "$VERSION" --no-git-tag-version
 
-      # ===== (ออปชัน) เซ็นโค้ดบน Windows ถ้ามี Secrets =====
-      # ตั้งค่าใน repo secrets: WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD
-      - name: Configure Windows signing env (optional)
-        if: runner.os == 'Windows'
-        run: echo "WIN_SIGN=${{ secrets.WIN_CSC_LINK && secrets.WIN_CSC_KEY_PASSWORD && 'true' || 'false' }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Install deps
+        run: npm ci
 
-      # Electron Builder picks these automatically if present
-      - name: Export signing secrets (all OS)
-        shell: bash
-        run: |
-          # macOS signing/notarize
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            [[ -n "${{ secrets.CSC_LINK }}" ]] && echo "CSC_LINK=${{ secrets.CSC_LINK }}" >> $GITHUB_ENV
-            [[ -n "${{ secrets.CSC_KEY_PASSWORD }}" ]] && echo "CSC_KEY_PASSWORD=${{ secrets.CSC_KEY_PASSWORD }}" >> $GITHUB_ENV
-            [[ -n "${{ secrets.APPLE_ID }}" ]] && echo "APPLE_ID=${{ secrets.APPLE_ID }}" >> $GITHUB_ENV
-            [[ -n "${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}" ]] && echo "APPLE_APP_SPECIFIC_PASSWORD=${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}" >> $GITHUB_ENV
-            [[ -n "${{ secrets.APPLE_TEAM_ID }}" ]] && echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> $GITHUB_ENV
-          fi
+      # ✅ รีบิลด์ native modules ให้ตรงกับ Electron (better-sqlite3, node-pty)
+      - name: Rebuild native modules
+        run: npm run rebuild
 
-          # Windows signing
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            if [[ -n "${{ secrets.WIN_CSC_LINK }}" ]]; then
-              echo "CSC_LINK=${{ secrets.WIN_CSC_LINK }}" >> $GITHUB_ENV
-            fi
-            if [[ -n "${{ secrets.WIN_CSC_KEY_PASSWORD }}" ]]; then
-              echo "CSC_KEY_PASSWORD=${{ secrets.WIN_CSC_KEY_PASSWORD }}" >> $GITHUB_ENV
-            fi
-          fi
-
-      - name: Build ${{ matrix.build_script }}
+      # Build ตามแพลตฟอร์ม
+      - name: Build
         run: npm run ${{ matrix.build_script }}
-        env:
-          # ให้ electron-builder/publish ใช้ token นี้ถ้าจำเป็น
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload OS artifacts
+      # อัปโหลด artifact ตามแพลตฟอร์ม
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}-artifacts
-          path: ${{ matrix.artifact_glob }}
-          if-no-files-found: warn
-          retention-days: 7
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
 
   release:
-    name: Create GitHub Release
-    needs: [meta, build]
     runs-on: ubuntu-latest
+    needs: build
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: dist-uploads
+          merge-multiple: true
 
-      # จำกัดไฟล์แนบเฉพาะ .dmg/.exe
-      - name: Collect release files
-        id: files
-        run: |
-          shopt -s globstar nullglob
-          mkdir -p rel
-          cp artifacts/**/**/*.dmg rel/ 2>/dev/null || true
-          cp artifacts/**/**/*.exe rel/ 2>/dev/null || true
-          echo "count=$(ls -1 rel | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
-          ls -al rel || true
-
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          tag_name: ${{ needs.meta.outputs.tag }}
-          name: Release ${{ needs.meta.outputs.tag }}
-          prerelease: ${{ needs.meta.outputs.prerelease }}
-          generate_release_notes: true
-          files: rel/**
+          files: dist-uploads/**
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }} # ถ้า tag มี - (เช่น -beta) จะทำเป็น pre-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Summary
-        run: |
-          echo "Tag:       ${{ needs.meta.outputs.tag }}"
-          echo "Prerelease: ${{ needs.meta.outputs.prerelease }}"
-          echo "Files:     ${{ steps.files.outputs.count }}"
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
