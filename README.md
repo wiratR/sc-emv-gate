@@ -80,6 +80,12 @@ React Router – จัดการ Routing
 
 i18n Custom Hook – แปลภาษา
 
+for relase and build tag
+
+```bash
+git tag v0.0.1 && git push --tags
+```
+
 👨‍💻 ผู้พัฒนา
 
 Wirat Rungjaroinsombut
