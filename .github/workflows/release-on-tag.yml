@@ -119,12 +119,13 @@ jobs:
           if-no-files-found: error
 
   release:
+    name: Create single release & upload all artifacts
     runs-on: ubuntu-latest
     needs: build
-    permissions:
+    permissions:    
         contents: write
     env:
-        GH_REPO: ${{ github.repository }}   # ✅ ชี้ repo
+        GH_REPO: ${{ github.repository }}
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
@@ -133,12 +134,13 @@ jobs:
         merge-multiple: true
 
     - name: List artifacts
-      run: ls -R dist-uploads
+      run: ls -R dist-uploads || true
 
+    # ✅ เอา --repo ออกจาก auth status (จะเช็ค token/host อย่างเดียว)
     - name: Auth status
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      run: gh auth status --repo "$GH_REPO"
+      run: gh auth status -h github.com || true
 
     - name: Delete existing release (if any)
       shell: bash
@@ -146,8 +148,12 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
         TAG="${{ github.ref_name }}"
+        echo "TAG=$TAG"
         if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+          echo "Found existing release for $TAG, deleting..."
           gh release delete "$TAG" -y --repo "$GH_REPO"
+        else
+          echo "No existing release for $TAG"
         fi
 
     - name: Create release and upload assets
@@ -156,7 +162,15 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
         TAG="${{ github.ref_name }}"
-        gh release create "$TAG" dist-uploads/** \
+        # เก็บรายชื่อไฟล์จริง ป้องกัน glob ว่าง
+        mapfile -t FILES < <(find dist-uploads -type f)
+        if [ ${#FILES[@]} -eq 0 ]; then
+          echo "No files in dist-uploads to release!"
+          exit 1
+        fi
+
+        # สร้าง release + อัปโหลดไฟล์ทั้งหมดครั้งเดียว
+        gh release create "$TAG" "${FILES[@]}" \
           --repo "$GH_REPO" \
           --title "$TAG" \
           --notes "Automated release for $TAG" \
