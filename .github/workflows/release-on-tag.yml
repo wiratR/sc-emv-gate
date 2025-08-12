@@ -66,6 +66,8 @@ jobs:
         if: runner.os == 'macOS'
         run: echo "CSC_IDENTITY_AUTO=true" >> $GITHUB_ENV
 
+      - name: Validate package.json
+        run: jq . package.json > /dev/null
       - name: 🏷️ Set version from Git tag
         shell: bash
         run: |
