@@ -10,7 +10,7 @@
   },
   "license": "MIT",
   "scripts": {
-    "dist:clean": "rimraf dist dist-electron dist-* out",
+    "dist:clean": "rimraf --glob dist dist-electron dist-* out",
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.electron.json",
     "pack": "electron-builder --dir",
