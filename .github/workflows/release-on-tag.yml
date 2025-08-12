@@ -40,10 +40,15 @@ jobs:
           key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
       - name: Auto codesign off (no cert)
         run: echo "CSC_IDENTITY_AUTO=true" >> $GITHUB_ENV
-      - name: Set version from tag
+      - name: Set version from Git tag
+        shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
           echo "Setting version to $VERSION"
+          # เผื่ออยากใช้ต่อในขั้นถัดไป
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
           npm version "$VERSION" --no-git-tag-version
       - name: Install deps (no scripts)
         run: npm ci --ignore-scripts
@@ -94,11 +99,15 @@ jobs:
             C:\Users\runneradmin\AppData\Local\electron\Cache
             C:\Users\runneradmin\AppData\Local\electron-builder\Cache
           key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
-      - name: Set version from tag
+      - name: Set version from Git tag
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
           echo "Setting version to $VERSION"
+          # เผื่ออยากใช้ต่อในขั้นถัดไป
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
           npm version "$VERSION" --no-git-tag-version
       - name: Install deps (no scripts)
         run: npm ci --ignore-scripts
@@ -161,10 +170,15 @@ jobs:
             ~/.cache/electron-builder
           key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
 
-      - name: Set version from tag
+      - name: Set version from Git tag
+        shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
           echo "Setting version to $VERSION"
+          # เผื่ออยากใช้ต่อในขั้นถัดไป
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
           npm version "$VERSION" --no-git-tag-version
 
       - name: Install deps (no scripts)
