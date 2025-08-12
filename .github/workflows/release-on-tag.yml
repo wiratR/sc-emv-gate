@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # ให้สิทธิ์สร้าง Release/อัปโหลดไฟล์
+  contents: write
 
 jobs:
   build:
@@ -61,13 +61,13 @@ jobs:
             libx11-dev libxkbfile-dev libsecret-1-dev \
             rpm fakeroot dpkg
 
-      # macOS: ไม่มี cert ก็ให้ electron-builder ข้ามการเซ็น
       - name: macOS codesign auto (no cert)
         if: runner.os == 'macOS'
         run: echo "CSC_IDENTITY_AUTO=true" >> $GITHUB_ENV
 
-      - name: Validate package.json
-        run: jq . package.json > /dev/null
+      - name: Validate package.json (cross-platform)
+        run: node -e "require('./package.json'); console.log('package.json OK')"
+
       - name: 🏷️ Set version from Git tag
         shell: bash
         run: |
@@ -76,28 +76,41 @@ jobs:
           echo "Setting version to $VERSION"
           npm version "$VERSION" --no-git-tag-version
 
+      # ------ Make node-gyp use a known Python BEFORE npm ci ------
       - name: Setup Python 3.11 for node-gyp
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Point node-gyp to Python
-        shell: bash
+      - name: Select Python for node-gyp (non-Windows)
+        if: runner.os != 'Windows'
         run: |
-          echo "Using Python: $(python --version)"
-          npm config set python "$(which python)"
+          echo "PYTHON=${{ env.pythonLocation }}/bin/python" >> $GITHUB_ENV
+          npm config set python "${{ env.pythonLocation }}/bin/python"
+          python --version
 
-      # สำคัญ: ข้าม install scripts (เช่น node-pty ตอนไหนจะลอง build)
+      - name: Select Python for node-gyp (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          echo "PYTHON=$env:pythonLocation\python.exe" >> $env:GITHUB_ENV
+          npm config set python "$env:pythonLocation\python.exe"
+          python --version
+      # ------------------------------------------------------------
+
+      # ติดตั้งแพ็กเกจแต่ “ไม่รัน postinstall”
       - name: Install deps (no scripts)
         run: npm ci --ignore-scripts
 
-      # ค่อย rebuild ให้ตรงกับ Electron ทีหลัง
+      # รีบิลด์ native modules ให้ตรงกับ Electron
       - name: Rebuild native modules
         run: npm run rebuild
 
+      # Build แอปตามแพลตฟอร์ม
       - name: Build
         run: npm run ${{ matrix.build_script }}
 
+      # อัปโหลดไฟล์ผลลัพธ์ของแต่ละแพลตฟอร์ม
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
