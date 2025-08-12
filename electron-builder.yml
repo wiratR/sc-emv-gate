@@ -38,3 +38,4 @@ linux:
   target: [AppImage, deb]
   category: Utility
   icon: build/icons
+  maintainer: "Siam Infinity Solution <wiart.r@sissolution.co.th>"

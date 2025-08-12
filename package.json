@@ -4,7 +4,10 @@
   "private": true,
   "description": "Electron + React + TS + Tailwind + Vite",
   "main": "dist-electron/main.js",
-  "author": "",
+  "author": {
+    "name": "Siam Infinity Solution",
+    "email": "wirat.r@sissolution.co.th"
+  },
   "license": "MIT",
   "scripts": {
     "dist:clean": "rimraf dist dist-electron dist-* out",
