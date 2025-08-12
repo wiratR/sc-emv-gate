@@ -76,9 +76,22 @@ jobs:
           echo "Setting version to $VERSION"
           npm version "$VERSION" --no-git-tag-version
 
-      - name: Install deps
-        run: npm ci
+      - name: Setup Python 3.11 for node-gyp
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
+      - name: Point node-gyp to Python
+        shell: bash
+        run: |
+          echo "Using Python: $(python --version)"
+          npm config set python "$(which python)"
+
+      # สำคัญ: ข้าม install scripts (เช่น node-pty ตอนไหนจะลอง build)
+      - name: Install deps (no scripts)
+        run: npm ci --ignore-scripts
+
+      # ค่อย rebuild ให้ตรงกับ Electron ทีหลัง
       - name: Rebuild native modules
         run: npm run rebuild
 

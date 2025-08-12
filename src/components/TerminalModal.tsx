@@ -1,10 +1,9 @@
 // src/components/TerminalModal.tsx
-import "xterm/css/xterm.css";
 
+import "@xterm/xterm/css/xterm.css";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
 import { useEffect, useRef, useState } from "react";
-
-import { FitAddon } from "xterm-addon-fit";
-import { Terminal } from "xterm";
 import { useI18n } from "@/i18n/I18nProvider";
 
 type Props = {
