@@ -8,162 +8,77 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write  # ให้สิทธิ์สร้าง/แก้ release ด้วย GITHUB_TOKEN
 
 jobs:
-  build_macos:
-    name: macOS build & release
-    runs-on: macos-latest
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            build_script: build:mac
+            artifacts: |
+              dist/*.dmg
+              dist/*.zip
+          - os: windows-latest
+            build_script: build:win
+            artifacts: |
+              dist/*.exe
+              dist/*.zip
+          - os: ubuntu-latest
+            build_script: build:linux
+            artifacts: |
+              dist/*.AppImage
+              dist/*.deb
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python 3.11 (for node-gyp)
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Point node-gyp to setup-python (macOS)
+      # ชี้ npm/node-gyp ให้ใช้ Python จาก setup-python (macOS/Linux)
+      - name: Point node-gyp to setup-python (non-Windows)
+        if: runner.os != 'Windows'
         run: |
           echo "PYTHON=$pythonLocation/bin/python" >> $GITHUB_ENV
           echo "npm_config_python=$pythonLocation/bin/python" >> $GITHUB_ENV
           $pythonLocation/bin/python -m pip install --upgrade pip setuptools wheel
-      - name: Cache Electron caches
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
-          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
-      - name: Auto codesign off (no cert)
-        run: echo "CSC_IDENTITY_AUTO=true" >> $GITHUB_ENV
-      - name: Set version from Git tag
-        shell: bash
-        run: |
-          TAG="${{ github.ref_name }}"
-          VERSION="${TAG#v}"
-          echo "Setting version to $VERSION"
-          # เผื่ออยากใช้ต่อในขั้นถัดไป
-          echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          npm version "$VERSION" --no-git-tag-version
-      - name: Install deps (no scripts)
-        run: npm ci --ignore-scripts
-      - name: Build macOS
-        run: npm run build:mac
-      
-      - name: 🗑️ Delete existing release (if any)
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          TAG="${{ github.ref_name }}"
-          echo "TAG=$TAG"
-          # ถ้ามี release อยู่แล้วให้ลบก่อน (ไม่ error หากไม่มี)
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Found existing release for $TAG, deleting..."
-            gh release delete "$TAG" -y
-          else
-            echo "No existing release for $TAG"
-          fi
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            dist/*.dmg
-            dist/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-  build_windows:
-    name: Windows build & release
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      # ชี้ npm/node-gyp ให้ใช้ Python จาก setup-python (Windows)
       - name: Point node-gyp to setup-python (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $PY = "$env:pythonLocation\python.exe"
           echo "PYTHON=$PY" >> $env:GITHUB_ENV
           echo "npm_config_python=$PY" >> $env:GITHUB_ENV
           & $PY -m pip install --upgrade pip setuptools wheel
+
       - name: Cache Electron caches
         uses: actions/cache@v4
         with:
           path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
             C:\Users\runneradmin\AppData\Local\electron\Cache
             C:\Users\runneradmin\AppData\Local\electron-builder\Cache
           key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
-      - name: Set version from Git tag
-        shell: bash
-        run: |
-          TAG="${{ github.ref_name }}"
-          VERSION="${TAG#v}"
-          echo "Setting version to $VERSION"
-          # เผื่ออยากใช้ต่อในขั้นถัดไป
-          echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          npm version "$VERSION" --no-git-tag-version
-      - name: Install deps (no scripts)
-        run: npm ci --ignore-scripts
-      - name: Build Windows
-        run: npm run build:win
-      
-      - name: 🗑️ Delete existing release (if any) [Windows]
-        if: runner.os == 'Windows'
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          $TAG = "${{ github.ref_name }}"
-          Write-Host "TAG=$TAG"
 
-          # เช็คว่ามี release ไหม
-          gh release view $TAG *> $null
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "Found existing release for $TAG, deleting..."
-            gh release delete $TAG -y
-          } else {
-            Write-Host "No existing release for $TAG"
-          }
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            dist/*.exe
-            dist/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-  build_linux:
-    name: Linux build & release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      # ✅ ไม่ต้องติดตั้ง python3-distutils (ไม่มีแล้วใน 24.04)
+      # deps เสริมบน Linux
       - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -171,19 +86,13 @@ jobs:
             libx11-dev libxkbfile-dev libsecret-1-dev \
             rpm fakeroot dpkg
 
-      - name: Point node-gyp to setup-python (Linux)
-        run: |
-          echo "PYTHON=$pythonLocation/bin/python" >> $GITHUB_ENV
-          echo "npm_config_python=$pythonLocation/bin/python" >> $GITHUB_ENV
-          $pythonLocation/bin/python -m pip install --upgrade pip setuptools wheel
+      # ปิด codesign อัตโนมัติบน macOS (ไม่มี cert)
+      - name: macOS codesign auto (no cert)
+        if: runner.os == 'macOS'
+        run: echo "CSC_IDENTITY_AUTO=true" >> $GITHUB_ENV
 
-      - name: Cache Electron caches
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
-          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
+      - name: Validate package.json
+        run: node -e "require('./package.json'); console.log('package.json OK')"
 
       - name: Set version from Git tag
         shell: bash
@@ -191,25 +100,50 @@ jobs:
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
           echo "Setting version to $VERSION"
-          # เผื่ออยากใช้ต่อในขั้นถัดไป
           echo "TAG=$TAG" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           npm version "$VERSION" --no-git-tag-version
 
+      # ติดตั้งโดยไม่รัน postinstall (เดี๋ยว electron-builder จะ rebuild ให้)
       - name: Install deps (no scripts)
         run: npm ci --ignore-scripts
 
-      - name: Build Linux
-        run: npm run build:linux
+      - name: Build
+        run: npm run ${{ matrix.build_script }}
 
-      - name: 🗑️ Delete existing release (if any)
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ runner.os }}-artifacts
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
+
+  release:
+    name: Create single release & upload all artifacts
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-uploads
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -R dist-uploads
+
+      - name: Auth status
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: gh auth status
+
+      # ลบ release เดิม (ถ้ามี) กันชื่อ asset ซ้ำ
+      - name: Delete existing release (if any)
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           TAG="${{ github.ref_name }}"
-          echo "TAG=$TAG"
-          # ถ้ามี release อยู่แล้วให้ลบก่อน (ไม่ error หากไม่มี)
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Found existing release for $TAG, deleting..."
             gh release delete "$TAG" -y
@@ -217,12 +151,14 @@ jobs:
             echo "No existing release for $TAG"
           fi
 
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            dist/*.AppImage
-            dist/*.deb
+      # สร้าง release ใหม่ครั้งเดียว + แนบไฟล์ทั้งหมด
+      - name: Create release and upload assets
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          gh release create "$TAG" dist-uploads/** \
+            --title "$TAG" \
+            --notes "Automated release for $TAG" \
+            --latest
