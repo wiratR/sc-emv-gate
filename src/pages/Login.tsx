@@ -28,11 +28,11 @@ export default function Login() {
     }
   }, [user, nav]);
 
-  // เดินทางแบบกันชน: ใช้ router + บังคับ hash ถ้าไม่ขยับ
+  // ฟังก์ชันนำทางแบบกันชน
   const go = (target: string) => {
     nav(target, { replace: true });
     setTimeout(() => {
-      if (!location.hash.endsWith(target)) {
+      if (!window.location.hash.endsWith(target)) {
         window.location.hash = `#${target}`;
       }
     }, 30);
@@ -67,33 +67,51 @@ export default function Login() {
     <div className="min-h-screen grid place-items-center bg-gray-100 p-4">
       <form onSubmit={onSubmit} className="relative w-full max-w-md bg-white p-8 rounded-2xl shadow text-center" autoComplete="on">
         <div className="absolute right-4 top-4"><LanguageSwitcher /></div>
+
         <LogoSVG className="w-32 h-auto mx-auto mb-4 select-none" />
         <h1 className="text-2xl font-semibold mb-4">{t("login_title")}</h1>
 
         <label className="block text-left">
           <span className="text-sm">{t("username")}</span>
-          <input name="username" required autoFocus autoComplete="username"
-                 className="mt-1 w-full rounded-lg border px-3 py-2"
-                 placeholder={t("username_placeholder")} />
+          <input
+            name="username"
+            required
+            autoFocus
+            autoComplete="username"
+            className="mt-1 w-full rounded-lg border px-3 py-2"
+            placeholder={t("username_placeholder")}
+          />
         </label>
 
         <label className="block text-left mt-3">
           <span className="text-sm">{t("password")}</span>
-          <input name="password" required type="password" autoComplete="current-password"
-                 className="mt-1 w-full rounded-lg border px-3 py-2"
-                 placeholder={t("password_placeholder")} />
+          <input
+            name="password"
+            required
+            type="password"
+            autoComplete="current-password"
+            className="mt-1 w-full rounded-lg border px-3 py-2"
+            placeholder={t("password_placeholder")}
+          />
         </label>
 
+        {/* Remember me (แปลภาษา) */}
         <label className="mt-4 flex items-center gap-2 text-sm select-none">
-          <input type="checkbox" className="h-4 w-4"
-                 checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-          <span>Remember me</span>
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+          />
+          <span>{t("remember_me")}</span>
         </label>
 
         {err && <div className="mt-3 text-sm text-red-600">{err}</div>}
 
-        <button disabled={loading}
-                className="mt-5 w-full rounded-lg bg-blue-600 text-white py-2 hover:bg-blue-700 disabled:opacity-60">
+        <button
+          disabled={loading}
+          className="mt-5 w-full rounded-lg bg-blue-600 text-white py-2 hover:bg-blue-700 disabled:opacity-60"
+        >
           {loading ? t("signing_in") : t("login")}
         </button>
       </form>

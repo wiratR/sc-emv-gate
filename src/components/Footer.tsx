@@ -34,7 +34,7 @@ export default function Footer({ className = "", tz = "Asia/Bangkok", locale }: 
 
   return (
     <footer className={`fixed bottom-0 left-0 right-0 bg-sky-600 text-white ${className}`}>
-      <div className="mx-auto max-w-7xl px-4 py-2 flex items-center justify-between text-sm">
+      <div className="mx-auto w-full px-4 py-2 flex items-center justify-between text-sm">
         <span>Copy Right 2025 Siam Infinity Solution.co.th</span>
         <span>{fmt.format(now)}</span>
       </div>

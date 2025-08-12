@@ -1,4 +1,5 @@
 // src/components/Header.tsx
+
 import { useEffect, useState } from "react";
 
 import LanguageSwitcher from "@/components/LanguageSwitcher";
@@ -11,8 +12,7 @@ type Props = { showStationInfo?: boolean };
 
 export default function Header({ showStationInfo = true }: Props) {
   const { user, logout } = useAuth();
-  const { t } = useI18n();
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
 
   const [stationName, setStationName] = useState<StationName | undefined>();
   const [stationId, setStationId] = useState("");
@@ -27,7 +27,7 @@ export default function Header({ showStationInfo = true }: Props) {
           setStationName(cfg.config.stationName ?? "");
           setStationId(cfg.config.stationId ?? "");
           setStationIp(cfg.config.stationIp ?? "");
-        }        
+        }
       } catch (e) {
         window.logger?.warn?.("[header] load config failed", String(e));
       }
@@ -35,8 +35,6 @@ export default function Header({ showStationInfo = true }: Props) {
     return () => { alive = false; };
   }, []);
 
-
-  // เลือกชื่อสถานีตามภาษา
   const stationLabel =
     typeof stationName === "string"
       ? stationName
@@ -44,7 +42,7 @@ export default function Header({ showStationInfo = true }: Props) {
 
   return (
     <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
-      <div className="mx-auto max-w-7xl px-6 py-3">
+      <div className="mx-auto w-full px-6">
         <div className="flex items-center justify-between gap-4">
           {/* Left: Logo + Title */}
           <div className="flex items-center gap-3">
@@ -55,7 +53,7 @@ export default function Header({ showStationInfo = true }: Props) {
             </div>
           </div>
 
-          {/* Center: Station Info (เฉพาะค่าตัวหนาตามที่ขอ) */}
+          {/* Center: Station Info */}
           {showStationInfo && (
             <div className="text-center">
               <div className="font-semibold">

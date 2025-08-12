@@ -18,7 +18,7 @@ export default function Home() {
   const [active, setActive] = useState<Side>("north");
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Device | null>(null);
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
 
   // ── Effects: load + subscribe updates ───────────────────────
   useEffect(() => {
@@ -82,15 +82,11 @@ export default function Home() {
       <main className="mx-auto max-w-7xl p-6 space-y-6">
         {/* Summary cards */}
         <section className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <SummaryCard label="Total" value={counts.total} />
-          <SummaryCard label="Online" value={counts.online} tone="online" />
-          <SummaryCard
-            label="Maintenance"
-            value={counts.maintenance}
-            tone="maintenance"
-          />
-          <SummaryCard label="Fault" value={counts.fault} tone="fault" />
-          <SummaryCard label="Offline" value={counts.offline} tone="offline" />
+          <SummaryCard label={t("total")} value={counts.total} />
+          <SummaryCard label={t("online")} value={counts.online} tone="online" />
+          <SummaryCard label={t("maintenance")} value={counts.maintenance} tone="maintenance" />
+          <SummaryCard label={t("fault")} value={counts.fault} tone="fault" />
+          <SummaryCard label={t("offline")} value={counts.offline} tone="offline" />
         </section>
 
         {/* Tabs North/South */}

@@ -5,12 +5,15 @@ import { useEffect, useState } from "react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { useAuth } from "@/auth/AuthContext";
+import { useI18n } from "@/i18n/I18nProvider";
 
 const LEVELS = ["debug", "info", "warn", "error"] as const;
 type Level = typeof LEVELS[number];
 
 export default function Settings() {
   const { user } = useAuth();
+  const { t } = useI18n();
+
   const [level, setLevel] = useState<Level>("info");
   const [logDir, setLogDir] = useState("");
   const [logFile, setLogFile] = useState("");
@@ -22,7 +25,10 @@ export default function Settings() {
       const cfg = await window.api?.getConfig();
       const info = await window.api?.getLogInfo();
       if (cfg?.ok) setLevel((cfg.config.logLevel || "info") as Level);
-      if (info?.ok) { setLogDir(info.logDir); setLogFile(info.logFile); }
+      if (info?.ok) {
+        setLogDir(info.logDir);
+        setLogFile(info.logFile);
+      }
     })();
   }, []);
 
@@ -30,25 +36,34 @@ export default function Settings() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <Header />
+
       {/* Main Body */}
       <main className="mx-auto max-w-3xl p-6">
-        <h1 className="text-2xl font-semibold">Settings</h1>
+        <h1 className="text-2xl font-semibold">{t("settings_title")}</h1>
 
         <section className="mt-6 p-4 bg-white rounded-2xl border shadow-sm">
           <div className="flex items-center justify-between gap-4">
-            <label className="text-sm">Log Level</label>
+            <label className="text-sm">{t("log_level")}</label>
             <select
               value={level}
               onChange={(e) => setLevel(e.target.value as Level)}
               className="border rounded-lg px-3 py-2"
             >
-              {LEVELS.map((l) => <option key={l} value={l}>{l.toUpperCase()}</option>)}
+              {LEVELS.map((l) => (
+                <option key={l} value={l}>
+                  {l.toUpperCase()}
+                </option>
+              ))}
             </select>
           </div>
 
           <div className="mt-4 text-sm text-gray-600">
-            <div>Log dir: <code>{logDir}</code></div>
-            <div>Current file: <code>{logFile}</code></div>
+            <div>
+              {t("log_dir")}: <code>{logDir}</code>
+            </div>
+            <div>
+              {t("log_file")}: <code>{logFile}</code>
+            </div>
           </div>
 
           <div className="mt-6 flex gap-3">
@@ -62,7 +77,7 @@ export default function Settings() {
               disabled={saving}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {saving ? "Saving..." : "Save"}
+              {saving ? t("saving") : t("save")}
             </button>
 
             <button
@@ -72,12 +87,13 @@ export default function Settings() {
               }}
               className="px-4 py-2 rounded-lg border hover:bg-gray-50"
             >
-              Open Logs Folder
+              {t("open_logs_folder")}
             </button>
           </div>
         </section>
       </main>
-      {/* footer */}
+
+      {/* Footer */}
       <Footer />
     </div>
   );

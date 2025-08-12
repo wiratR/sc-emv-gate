@@ -1,4 +1,5 @@
 // src/App.tsx
+
 import { Navigate, Route, HashRouter as Router, Routes } from "react-router-dom";
 
 import { AuthProvider } from "@/auth/AuthContext";

@@ -77,6 +77,16 @@ export const translations: Record<Lang, Record<string, string>> = {
     // Side
     side_north: "ทิศเหนือ",
     side_south: "ทิศใต้",
+
+    last_seen: "เห็นล่าสุด",
+    // Terminal Modal
+    console_title: "คอนโซล",
+    close: "ปิด",
+    failed_to_start_terminal: "เริ่มต้นเทอร์มินัลไม่สำเร็จ",
+    process_exited: "กระบวนการสิ้นสุด",
+    ssh_session: "เซสชัน SSH แบบโต้ตอบ",
+    local_shell: "เชลล์ภายในเครื่อง",
+    terminate_hint: "กด Ctrl+C/D เพื่อปิด",
   },
 
   en: {
@@ -153,6 +163,17 @@ export const translations: Record<Lang, Record<string, string>> = {
     // Side
     side_north: "North",
     side_south: "South",
+
+    last_seen: "Last seen",
+
+    // Terminal Modal
+    console_title: "Console",
+    close: "Close",
+    failed_to_start_terminal: "Failed to start terminal",
+    process_exited: "process exited",
+    ssh_session: "Interactive SSH session",
+    local_shell: "Local shell",
+    terminate_hint: "Press Ctrl+C/D to terminate",
   },
 };
 
