@@ -41,6 +41,10 @@ declare global {
       openLogsFolder: () => Promise<{ ok:boolean; logDir:string }>;
 
       clearSession: () => Promise<{ ok: boolean; error?: string }>;
+      // User
+      listUsers: () => Promise<{ ok: boolean; users?: { username: string; role: "admin" | "staff" | "maintenance" }[]; error?: string }>;
+      createUser: (payload: { username: string; password: string; role: "admin" | "staff" | "maintenance" }) => Promise<{ ok: true } | { ok: false; error: string }>;
+      deleteUser: (username: string) => Promise<{ ok: true } | { ok: false; error: string }>;
     };
     devices?: {
       getDevices: () => Promise<{ ok: boolean; devices: any[]; path: string }>;

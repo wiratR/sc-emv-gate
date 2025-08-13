@@ -10,6 +10,7 @@ import { setupAuthIPC } from "./ipc/auth";
 import { setupConfigIPC } from "./ipc/config";
 import { setupDeviceIPC } from "./ipc/device";
 import { setupTerminalIPC } from "./ipc/terminal";
+import { setupUsersIPC } from "./ipc/user";
 import url from "url";
 
 let win: BrowserWindow | null = null;
@@ -78,6 +79,7 @@ async function createWindow() {
 
   setupAuthIPC(db);
   setupConfigIPC(logger);
+  setupUsersIPC(db, logger);
 
   // deviceCommunicationPath → ไฟล์ JSON จริง & ตั้ง IPC ของ devices
   const deviceFilePath = resolveDeviceFilePath(config.deviceCommunicationPath, pathUsed);

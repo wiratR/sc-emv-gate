@@ -26,6 +26,11 @@ contextBridge.exposeInMainWorld("api", {
   getLogInfo: () => ipcRenderer.invoke("log:info"),
   openLogsFolder: () => ipcRenderer.invoke("log:open-folder"),  
   clearSession: () => ipcRenderer.invoke("clear-session"),
+
+  listUsers: () => ipcRenderer.invoke("users:list"),
+  createUser: (payload: { username: string; password: string; role: "admin" | "staff" | "maintenance" }) =>
+    ipcRenderer.invoke("users:create", payload),
+  deleteUser: (username: string) => ipcRenderer.invoke("users:delete", username),
 });
 
 contextBridge.exposeInMainWorld("devices", {

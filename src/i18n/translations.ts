@@ -87,6 +87,21 @@ export const translations: Record<Lang, Record<string, string>> = {
     ssh_session: "เซสชัน SSH แบบโต้ตอบ",
     local_shell: "เชลล์ภายในเครื่อง",
     terminate_hint: "กด Ctrl+C/D เพื่อปิด",
+    
+    // User Management
+    user_mgmt_title: "จัดการผู้ใช้",
+    user_list_title: "รายชื่อผู้ใช้",
+    create_user: "สร้างผู้ใช้",
+    creating: "กำลังสร้าง...",
+    delete_user: "ลบ",
+    deleting: "กำลังลบ...",
+    loading: "กำลังโหลด...",
+    no_users: "ยังไม่มีผู้ใช้",
+    um_no_permission: "ต้องเป็นผู้ดูแลระบบ (admin) จึงจะจัดการผู้ใช้ได้",
+    um_cannot_delete_self: "ไม่สามารถลบผู้ใช้ที่กำลังล็อกอินอยู่ได้",
+    um_delete_confirm: "ต้องการลบผู้ใช้ \"{{username}}\" หรือไม่?",
+    um_create_failed: "สร้างผู้ใช้ไม่สำเร็จ",
+    um_delete_failed: "ลบผู้ใช้ไม่สำเร็จ",
   },
 
   en: {
@@ -174,6 +189,21 @@ export const translations: Record<Lang, Record<string, string>> = {
     ssh_session: "Interactive SSH session",
     local_shell: "Local shell",
     terminate_hint: "Press Ctrl+C/D to terminate",
+
+    // User Management
+    user_mgmt_title: "User Management",
+    user_list_title: "Users",
+    create_user: "Create User",
+    creating: "Creating...",
+    delete_user: "Delete",
+    deleting: "Deleting...",
+    loading: "Loading...",
+    no_users: "No users.",
+    um_no_permission: "Only admin can manage users.",
+    um_cannot_delete_self: "You cannot delete the currently logged-in user.",
+    um_delete_confirm: "Delete user \"{{username}}\"?",
+    um_create_failed: "Create user failed",
+    um_delete_failed: "Delete user failed",
   },
 };
 
