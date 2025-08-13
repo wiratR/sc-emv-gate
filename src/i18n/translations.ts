@@ -1,5 +1,4 @@
 // src/i18n/translations.ts
-
 export type Lang = "th" | "en";
 
 export const translations: Record<Lang, Record<string, string>> = {
@@ -11,6 +10,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     username_label: "ผู้ใช้",
     role_label: "บทบาท",
 
+    // Language switcher
+    change_lang: "EN",
+
     // Login
     login_title: "เข้าสู่ระบบ",
     username: "ชื่อผู้ใช้",
@@ -21,7 +23,6 @@ export const translations: Record<Lang, Record<string, string>> = {
     signing_in: "กำลังเข้าสู่ระบบ...",
     invalid_credentials: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
     remember_me: "จดจำฉันไว้ในเครื่อง",
-    change_lang: "EN",
 
     // Home / Summary
     total: "ทั้งหมด",
@@ -43,10 +44,13 @@ export const translations: Record<Lang, Record<string, string>> = {
     device_heartbeat: "ฮาร์ทบีต",
     device_message: "ข้อความ",
 
-    // Station info
+    // Station info & display
     station_name: "สถานี",
     station_id: "รหัสสถานี",
     station_ip: "ไอพีสถานี",
+    fullscreen: "เต็มจอ",
+    note: "หมายเหตุ",
+    will_apply_next_launch: "จะมีผลเมื่อเปิดแอปครั้งถัดไป",
 
     // Settings
     settings_title: "การตั้งค่า",
@@ -68,51 +72,44 @@ export const translations: Record<Lang, Record<string, string>> = {
     cancel: "ยกเลิก",
     enter: "ยืนยัน",
 
-    // Maintenance tools
+    // Maintenance tools / Terminal
     maintenance_tools: "เครื่องมือบำรุงรักษา",
     reboot_gate: "รีบูทเกท",
     open_console: "เปิดคอนโซล",
     console_hint: "คอนโซลใช้ xterm.js + node-pty (SSH ผ่านระบบ)",
-    
-    // Side
+    close: "ปิด",
+    ssh_session: "เชื่อมต่อ SSH แบบโต้ตอบ",
+    local_shell: "เชลล์ภายในเครื่อง",
+    terminate_hint: "กด Ctrl+C/D เพื่อออก",
+
+    // Side labels
     side_north: "ทิศเหนือ",
     side_south: "ทิศใต้",
 
-    last_seen: "เห็นล่าสุด",
-    // Terminal Modal
-    console_title: "คอนโซล",
-    close: "ปิด",
-    failed_to_start_terminal: "เริ่มต้นเทอร์มินัลไม่สำเร็จ",
-    process_exited: "กระบวนการสิ้นสุด",
-    ssh_session: "เซสชัน SSH แบบโต้ตอบ",
-    local_shell: "เชลล์ภายในเครื่อง",
-    terminate_hint: "กด Ctrl+C/D เพื่อปิด",
-    
+    // Status / Confirm modal (StatusModal)
+    info: "ข้อมูล",
+    success: "สำเร็จ",
+    error: "ข้อผิดพลาด",
+    confirm: "ยืนยัน",
+
     // User Management
     user_mgmt_title: "จัดการผู้ใช้",
-    user_list_title: "รายชื่อผู้ใช้",
+    um_no_permission: "บัญชีของคุณไม่มีสิทธิ์จัดการผู้ใช้",
     create_user: "สร้างผู้ใช้",
     creating: "กำลังสร้าง...",
-    delete_user: "ลบ",
-    deleting: "กำลังลบ...",
+    user_list_title: "รายชื่อผู้ใช้",
     loading: "กำลังโหลด...",
-    no_users: "ยังไม่มีผู้ใช้",
-    um_no_permission: "ต้องเป็นผู้ดูแลระบบ (admin) จึงจะจัดการผู้ใช้ได้",
-    um_cannot_delete_self: "ไม่สามารถลบผู้ใช้ที่กำลังล็อกอินอยู่ได้",
-    um_create_confirm: "ยืนยันสร้างผู้ใช้ \"{user}\" (บทบาท {role}) หรือไม่?",
-    um_delete_confirm: "ต้องการลบผู้ใช้ \"{{username}}\" หรือไม่?",
+    no_users: "ไม่มีผู้ใช้",
+    delete_user: "ลบผู้ใช้",
+    deleting: "กำลังลบ...",
+    um_cannot_delete_self: "ไม่สามารถลบบัญชีของตนเองได้",
+    um_delete_confirm: "ยืนยันลบผู้ใช้ \"{user}\" ?",
+    um_create_confirm: "ยืนยันสร้างผู้ใช้ \"{user}\" (บทบาท {role}) ?",
     um_create_failed: "สร้างผู้ใช้ไม่สำเร็จ",
     um_delete_failed: "ลบผู้ใช้ไม่สำเร็จ",
-
-    info: "แจ้งให้ทราบ",
-    success: "สำเร็จ",
-    error: "เกิดข้อผิดพลาด",
-    confirm: "ยืนยัน",
-    // cancel: "ยกเลิก",
-
-    um_list_failed: "ไม่สามารถโหลดรายการผู้ใช้",
-    um_create_ok: "สร้างผู้ใช้ \"{user}\" สำเร็จ",
-    um_delete_ok: "ลบผู้ใช้ \"{user}\" สำเร็จ",
+    um_list_failed: "โหลดรายชื่อผู้ใช้ไม่สำเร็จ",
+    um_create_ok: "สร้างผู้ใช้สำเร็จ",
+    um_delete_ok: "ลบผู้ใช้สำเร็จ",
   },
 
   en: {
@@ -122,6 +119,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     logout: "Logout",
     username_label: "User",
     role_label: "Role",
+
+    // Language switcher
+    change_lang: "TH",
 
     // Login
     login_title: "Login",
@@ -133,7 +133,6 @@ export const translations: Record<Lang, Record<string, string>> = {
     signing_in: "Signing in...",
     invalid_credentials: "Invalid username or password",
     remember_me: "Remember me",
-    change_lang: "TH",
 
     // Home / Summary
     total: "Total",
@@ -155,10 +154,13 @@ export const translations: Record<Lang, Record<string, string>> = {
     device_heartbeat: "Heartbeat",
     device_message: "Message",
 
-    // Station info
+    // Station info & display
     station_name: "Station",
     station_id: "Station ID",
     station_ip: "Station IP",
+    fullscreen: "Full Screen",
+    note: "Note",
+    will_apply_next_launch: "will apply on next launch",
 
     // Settings
     settings_title: "Settings",
@@ -180,53 +182,44 @@ export const translations: Record<Lang, Record<string, string>> = {
     cancel: "Cancel",
     enter: "Enter",
 
-    // Maintenance tools
+    // Maintenance tools / Terminal
     maintenance_tools: "Maintenance Tools",
     reboot_gate: "Reboot Gate",
     open_console: "Open Console",
     console_hint: "Console uses xterm.js + node-pty (SSH via system).",
+    close: "Close",
+    ssh_session: "Interactive SSH session",
+    local_shell: "Local shell",
+    terminate_hint: "Press Ctrl+C/D to exit",
 
-    // Side
+    // Side labels
     side_north: "North",
     side_south: "South",
 
-    last_seen: "Last seen",
-
-    // Terminal Modal
-    console_title: "Console",
-    close: "Close",
-    failed_to_start_terminal: "Failed to start terminal",
-    process_exited: "process exited",
-    ssh_session: "Interactive SSH session",
-    local_shell: "Local shell",
-    terminate_hint: "Press Ctrl+C/D to terminate",
-
-    // User Management
-    user_mgmt_title: "User Management",
-    user_list_title: "Users",
-    create_user: "Create User",
-    creating: "Creating...",
-    delete_user: "Delete",
-    deleting: "Deleting...",
-    loading: "Loading...",
-    no_users: "No users.",
-    um_no_permission: "Only admin can manage users.",
-    um_cannot_delete_self: "You cannot delete the currently logged-in user.",
-    um_create_confirm: "Create user \"{user}\" with role {role}?",
-    um_delete_confirm: "Delete user \"{{username}}\"?",
-    um_create_failed: "Create user failed",
-    um_delete_failed: "Delete user failed",
-
+    // Status / Confirm modal (StatusModal)
     info: "Info",
     success: "Success",
     error: "Error",
     confirm: "Confirm",
-    // cancel: "Cancel",
 
+    // User Management
+    user_mgmt_title: "User Management",
+    um_no_permission: "Your account has no permission to manage users.",
+    create_user: "Create user",
+    creating: "Creating...",
+    user_list_title: "Users",
+    loading: "Loading...",
+    no_users: "No users",
+    delete_user: "Delete user",
+    deleting: "Deleting...",
+    um_cannot_delete_self: "You cannot delete your own account.",
+    um_delete_confirm: "Delete user \"{user}\" ?",
+    um_create_confirm: "Create user \"{user}\" (role {role}) ?",
+    um_create_failed: "Create user failed",
+    um_delete_failed: "Delete user failed",
     um_list_failed: "Failed to load users",
-    um_create_ok: "Created user \"{user}\" successfully",
-    um_delete_ok: "Deleted user \"{user}\"",
-
+    um_create_ok: "User created",
+    um_delete_ok: "User deleted",
   },
 };
 
