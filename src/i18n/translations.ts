@@ -71,6 +71,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     not_online_warning: "อุปกรณ์ไม่ได้อยู่ในสถานะ ONLINE ไม่สามารถสั่งงานได้",
     cancel: "ยกเลิก",
     enter: "ยืนยัน",
+    reboot_ok: "สั่งรีบูทสำเร็จ",
+    reboot_failed: "สั่งรีบูทไม่สำเร็จ",
+    operation_blocked: "อุปกรณ์ไม่พร้อม จึงไม่สามารถสั่งงานได้",
+    last_seen: "เห็นล่าสุด",
 
     // Maintenance tools / Terminal
     maintenance_tools: "เครื่องมือบำรุงรักษา",
@@ -81,7 +85,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     ssh_session: "เชื่อมต่อ SSH แบบโต้ตอบ",
     local_shell: "เชลล์ภายในเครื่อง",
     terminate_hint: "กด Ctrl+C/D เพื่อออก",
-
+    
     // Side labels
     side_north: "ทิศเหนือ",
     side_south: "ทิศใต้",
@@ -181,6 +185,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     not_online_warning: "This device is not ONLINE. Operation control is disabled.",
     cancel: "Cancel",
     enter: "Enter",
+    reboot_ok: "Reboot succeeded",
+    reboot_failed: "Reboot failed",
+    operation_blocked: "Operation blocked: device not ready",
+    last_seen: "Last seen",
 
     // Maintenance tools / Terminal
     maintenance_tools: "Maintenance Tools",

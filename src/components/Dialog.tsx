@@ -48,7 +48,7 @@ export default function Dialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-3"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 p-3"
       onMouseDown={handleOverlay}
       aria-modal="true"
       role="dialog"
