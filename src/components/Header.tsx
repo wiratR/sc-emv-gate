@@ -42,7 +42,8 @@ export default function Header({ showStationInfo = true }: Props) {
 
   return (
     <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
-      <div className="mx-auto w-full px-6">
+      {/* เพิ่ม padding บนเล็กน้อย */}
+      <div className="mx-auto w-full px-6 pt-6 pb-2">
         <div className="flex items-center justify-between gap-4">
           {/* Left: Logo + Title */}
           <div className="flex items-center gap-3">

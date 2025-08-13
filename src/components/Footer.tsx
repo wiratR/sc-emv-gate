@@ -18,16 +18,27 @@ export default function Footer({ className = "", tz = "Asia/Bangkok", locale }: 
     return () => clearInterval(id);
   }, []);
 
-  const fmt = useMemo(
+  // วันที่ตาม locale
+  const fmtDate = useMemo(
     () =>
       new Intl.DateTimeFormat(locale || navigator.language, {
         timeZone: tz,
         year: "numeric",
         month: "short",
         day: "2-digit",
+      }),
+    [tz, locale]
+  );
+
+  // เวลาแบบ 24 ชั่วโมงแน่นอน hh:mm:ss
+  const fmtTime = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale || navigator.language, {
+        timeZone: tz,
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
+        hour12: false, // ✅ บังคับ 24-ชั่วโมง
       }),
     [tz, locale]
   );
@@ -36,7 +47,9 @@ export default function Footer({ className = "", tz = "Asia/Bangkok", locale }: 
     <footer className={`fixed bottom-0 left-0 right-0 bg-sky-600 text-white ${className}`}>
       <div className="mx-auto w-full px-4 py-2 flex items-center justify-between text-sm">
         <span>Copy Right 2025 Siam Infinity Solution.co.th</span>
-        <span>{fmt.format(now)}</span>
+        <span>
+          {fmtDate.format(now)} • {fmtTime.format(now)}
+        </span>
       </div>
     </footer>
   );
