@@ -99,9 +99,20 @@ export const translations: Record<Lang, Record<string, string>> = {
     no_users: "ยังไม่มีผู้ใช้",
     um_no_permission: "ต้องเป็นผู้ดูแลระบบ (admin) จึงจะจัดการผู้ใช้ได้",
     um_cannot_delete_self: "ไม่สามารถลบผู้ใช้ที่กำลังล็อกอินอยู่ได้",
+    um_create_confirm: "ยืนยันสร้างผู้ใช้ \"{user}\" (บทบาท {role}) หรือไม่?",
     um_delete_confirm: "ต้องการลบผู้ใช้ \"{{username}}\" หรือไม่?",
     um_create_failed: "สร้างผู้ใช้ไม่สำเร็จ",
     um_delete_failed: "ลบผู้ใช้ไม่สำเร็จ",
+
+    info: "แจ้งให้ทราบ",
+    success: "สำเร็จ",
+    error: "เกิดข้อผิดพลาด",
+    confirm: "ยืนยัน",
+    // cancel: "ยกเลิก",
+
+    um_list_failed: "ไม่สามารถโหลดรายการผู้ใช้",
+    um_create_ok: "สร้างผู้ใช้ \"{user}\" สำเร็จ",
+    um_delete_ok: "ลบผู้ใช้ \"{user}\" สำเร็จ",
   },
 
   en: {
@@ -201,9 +212,21 @@ export const translations: Record<Lang, Record<string, string>> = {
     no_users: "No users.",
     um_no_permission: "Only admin can manage users.",
     um_cannot_delete_self: "You cannot delete the currently logged-in user.",
+    um_create_confirm: "Create user \"{user}\" with role {role}?",
     um_delete_confirm: "Delete user \"{{username}}\"?",
     um_create_failed: "Create user failed",
     um_delete_failed: "Delete user failed",
+
+    info: "Info",
+    success: "Success",
+    error: "Error",
+    confirm: "Confirm",
+    // cancel: "Cancel",
+
+    um_list_failed: "Failed to load users",
+    um_create_ok: "Created user \"{user}\" successfully",
+    um_delete_ok: "Deleted user \"{user}\"",
+
   },
 };
 

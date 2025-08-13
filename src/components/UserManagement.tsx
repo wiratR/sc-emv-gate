@@ -1,11 +1,22 @@
 // src/components/UserManagement.tsx
+
 import { useEffect, useMemo, useState } from "react";
 
+import StatusModal from "@/components/StatusModal";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n/I18nProvider";
 
 type Role = "admin" | "staff" | "maintenance";
 type SimpleUser = { username: string; role: Role };
+
+type Variant = "info" | "success" | "error" | "confirm";
+type ModalState = {
+  open: boolean;
+  variant: Variant;
+  title: string;
+  message: string;
+  onConfirm?: () => void | Promise<void>;
+};
 
 export default function UserManagement() {
   const { user } = useAuth();
@@ -20,6 +31,14 @@ export default function UserManagement() {
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  // 🔔 modal เดียว ใช้ได้ทั้ง info/success/error/confirm
+  const [m, setM] = useState<ModalState>({
+    open: false,
+    variant: "info",
+    title: "",
+    message: "",
+  });
+
   const canManage = user?.role === "admin";
 
   const canCreate = useMemo(() => {
@@ -31,13 +50,19 @@ export default function UserManagement() {
       setLoadingUsers(true);
       const res = await window.api?.listUsers?.();
       if (res?.ok && Array.isArray(res.users)) {
-        const list = (res.users as any[]).map(u => ({
+        const list = (res.users as any[]).map((u) => ({
           username: String(u.username),
           role: (u.role as Role) ?? "staff",
         }));
         setUsers(list);
       } else {
         window.logger?.warn?.("[users] listUsers failed", res);
+        setM({
+          open: true,
+          variant: "error",
+          title: (t("error") as string) ?? "Error",
+          message: res?.error || (t("um_list_failed") as string) || "Load users failed",
+        });
       }
     } finally {
       setLoadingUsers(false);
@@ -48,7 +73,8 @@ export default function UserManagement() {
     loadUsers();
   }, []);
 
-  const onCreateUser = async () => {
+  // ----- actions -----
+  const doCreateUser = async () => {
     if (!canManage || !canCreate || creating) return;
     try {
       setCreating(true);
@@ -56,39 +82,69 @@ export default function UserManagement() {
       window.logger?.info?.("[users] createUser", { ...payload, password: "***" });
       const res = await window.api?.createUser?.(payload);
       if (!res?.ok) {
-        alert(res?.error || t("um_create_failed"));
+        setM({
+          open: true,
+          variant: "error",
+          title: (t("error") as string) ?? "Error",
+          message: res?.error || (t("um_create_failed") as string) || "Create user failed",
+        });
         return;
       }
       setNewUsername("");
       setNewPassword("");
       setNewRole("staff");
       await loadUsers();
+      setM({
+        open: true,
+        variant: "success",
+        title: (t("success") as string) ?? "Success",
+        message:
+          (t("um_create_ok") as string)?.replace("{user}", payload.username) ||
+          `Created user "${payload.username}"`,
+      });
     } finally {
       setCreating(false);
     }
   };
 
-  const onDeleteUser = async (u: SimpleUser) => {
+  const doDeleteUser = async (u: SimpleUser) => {
     if (!canManage) return;
     if (u.username === user?.username) {
-      alert(t("um_cannot_delete_self"));
+      setM({
+        open: true,
+        variant: "info",
+        title: (t("info") as string) ?? "Info",
+        message: (t("um_cannot_delete_self") as string) || "You cannot delete your own account.",
+      });
       return;
     }
-    const ok = confirm(t("um_delete_confirm").replace("{user}", u.username));
-    if (!ok) return;
     try {
       setDeleting(u.username);
       const res = await window.api?.deleteUser?.(u.username);
       if (!res?.ok) {
-        alert(res?.error || t("um_delete_failed"));
+        setM({
+          open: true,
+          variant: "error",
+          title: (t("error") as string) ?? "Error",
+          message: res?.error || (t("um_delete_failed") as string) || "Delete user failed",
+        });
         return;
       }
       await loadUsers();
+      setM({
+        open: true,
+        variant: "success",
+        title: (t("success") as string) ?? "Success",
+        message:
+          (t("um_delete_ok") as string)?.replace("{user}", u.username) ||
+          `Deleted user "${u.username}"`,
+      });
     } finally {
       setDeleting(null);
     }
   };
 
+  // ----- UI -----
   return (
     <section className="p-4 bg-white rounded-2xl border shadow-sm">
       <fieldset className="rounded-xl border p-3">
@@ -140,8 +196,24 @@ export default function UserManagement() {
           </label>
 
           <div className="flex items-end">
+            {/* กด Create → เปิด modal แบบ confirm */}
             <button
-              onClick={onCreateUser}
+              type="button"
+              onClick={() =>
+                setM({
+                  open: true,
+                  variant: "confirm",
+                  title: (t("create_user") as string) || "Create user",
+                  message:
+                    (t("um_create_confirm") as string)?.replace("{user}", newUsername.trim() || "-")
+                      ?.replace("{role}", newRole.toUpperCase()) ||
+                    `${t("create_user")}: "${newUsername.trim()}" (${newRole.toUpperCase()}) ?`,
+                  onConfirm: async () => {
+                    setM((x) => ({ ...x, open: false }));
+                    await doCreateUser();
+                  },
+                })
+              }
               disabled={!canManage || !canCreate || creating}
               className="w-full px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
             >
@@ -172,12 +244,42 @@ export default function UserManagement() {
                       <div className="text-gray-500">{u.role.toUpperCase()}</div>
                     </div>
                     <button
-                      onClick={() => onDeleteUser(u)}
+                      type="button"
+                      onClick={() => {
+                        if (isSelf) {
+                          setM({
+                            open: true,
+                            variant: "info",
+                            title: (t("info") as string) ?? "Info",
+                            message:
+                              (t("um_cannot_delete_self") as string) ||
+                              "You cannot delete your own account.",
+                          });
+                          return;
+                        }
+                        setM({
+                          open: true,
+                          variant: "confirm",
+                          title: (t("delete_user") as string) || "Delete user",
+                          message:
+                            (t("um_delete_confirm") as string)?.includes("{user}")
+                              ? (t("um_delete_confirm") as string).replace("{user}", u.username)
+                              : `${t("delete_user")}: "${u.username}" ?`,
+                          onConfirm: async () => {
+                            setM((x) => ({ ...x, open: false }));
+                            await doDeleteUser(u);
+                          },
+                        });
+                      }}
                       disabled={disabled}
                       className={`px-3 py-1.5 rounded-lg border ${
                         disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
                       }`}
-                      title={isSelf ? (t("um_cannot_delete_self") as string) : (t("delete_user") as string)}
+                      title={
+                        isSelf
+                          ? ((t("um_cannot_delete_self") as string) || "Cannot delete self")
+                          : ((t("delete_user") as string) || "Delete user")
+                      }
                     >
                       {deleting === u.username ? t("deleting") : t("delete_user")}
                     </button>
@@ -188,6 +290,18 @@ export default function UserManagement() {
           )}
         </div>
       </fieldset>
+
+      {/* Modal เดียวใช้งานหลายโหมด */}
+      <StatusModal
+        open={m.open}
+        variant={m.variant}
+        title={m.title}
+        message={m.message}
+        onClose={() => setM((x) => ({ ...x, open: false }))}
+        onConfirm={m.onConfirm}
+        confirmText={(t("confirm") as string) ?? "Confirm"}
+        cancelText={(t("cancel") as string) ?? "Cancel"}
+      />
     </section>
   );
 }
