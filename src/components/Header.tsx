@@ -41,8 +41,8 @@ export default function Header({ showStationInfo = true }: Props) {
       : (stationName?.[lang] ?? stationName?.en ?? stationName?.th ?? "");
 
   return (
-    <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
-      {/* เพิ่ม padding บนเล็กน้อย */}
+    <div className="sticky top-0 z-10 bg-sky-600 text-white border-b border-sky-700">
+      {/* padding บน/ล่างให้โปร่งขึ้น */}
       <div className="mx-auto w-full px-6 pt-6 pb-2">
         <div className="flex items-center justify-between gap-4">
           {/* Left: Logo + Title */}
@@ -50,7 +50,7 @@ export default function Header({ showStationInfo = true }: Props) {
             <img src={logoUrl} alt="Logo" className="w-10 h-10" draggable={false} />
             <div>
               <div className="text-base font-semibold">{t("app_title")}</div>
-              <div className="text-xs text-gray-500">{t("app_subtitle")}</div>
+              <div className="text-xs text-white/80">{t("app_subtitle")}</div>
             </div>
           </div>
 
@@ -68,7 +68,9 @@ export default function Header({ showStationInfo = true }: Props) {
           <div className="flex items-center gap-3">
             <div className="text-sm text-right">
               <div className="font-semibold">{user?.username || "Guest"}</div>
-              <div className="text-xs text-gray-500">{user?.role?.toUpperCase?.() || ""}</div>
+              <div className="text-xs text-white/70">
+                {user?.role?.toUpperCase?.() || ""}
+              </div>
             </div>
             <LanguageSwitcher />
             <button
