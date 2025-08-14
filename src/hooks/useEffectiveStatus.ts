@@ -1,117 +1,202 @@
 // src/hooks/useEffectiveStatus.ts
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
 import type { Device } from "@/models/device";
-import {
-  computeEffectiveStatus,
-  type EffectiveStatus,
-  type ProbeResult,
-  isOnline,
-} from "@/utils/effectiveStatus";
+import type { EffectiveStatus } from "@/utils/status";
+import { summarizeHeartbeat } from "@/utils/deviceHeartBeatCheck";
 
-type HbSummary = {
-  status: "online" | "stale" | "offline";
-  agoText: string;
-};
-
-type State = {
-  status: EffectiveStatus;
-  hb: HbSummary;
-  probe?: ProbeResult;
-};
+type ProbeOk  = { ok: true; reachable: boolean; rttMs: number };
+type ProbeErr = { ok: false; error: string };
+type Probe    = ProbeOk | ProbeErr;
 
 type Options = {
-  pollingMs?: number;
+  label?: string;
+  refreshMs?: number;
   staleMs?: number;
   offlineMs?: number;
   tcpPort?: number;
   timeoutMs?: number;
-  /** key สำหรับ debug log เช่น `"modal:G1-01:Entry Reader"` */
-  logKey?: string;
 };
 
-/** ใช้ได้แม้ device = null (จะคืน offline เฉย ๆ) เพื่อกัน React hooks order ผิดพลาด */
-export default function useEffectiveStatus(device: Device | null | undefined, opts?: Options): State {
-  const [state, setState] = useState<State>(() => ({
+type State = {
+  status: EffectiveStatus;
+  hb: ReturnType<typeof summarizeHeartbeat> | null;
+  probe?: Probe;
+  tick: number;
+  refreshNow: () => void;
+};
+
+const DEFAULTS: Required<Pick<Options,"refreshMs"|"staleMs"|"offlineMs"|"tcpPort"|"timeoutMs">> = {
+  refreshMs: 6000,
+  staleMs:   60_000,
+  offlineMs: 300_000,
+  tcpPort:   22,
+  timeoutMs: 1200,
+};
+
+export default function useEffectiveStatus(
+  device?: Device,
+  opts?: Options
+): State {
+  const cfg = { ...DEFAULTS, ...(opts || {}) };
+  const label = opts?.label || "useEff";
+
+  const [state, setState] = useState<State>({
     status: "offline",
-    hb: { status: "offline", agoText: "-" },
+    hb: null,
     probe: undefined,
-  }));
+    tick: 0,
+    refreshNow: () => {},
+  });
 
-  const timerRef = useRef<number | null>(null);
-  const pollingMs = Math.max(1000, opts?.pollingMs ?? 6000);
+  const lastStatusRef = useRef<EffectiveStatus | null>(null);
+  const stopRef = useRef<() => void>();
 
-  // ฟังก์ชันวิ่ง 1 รอบ
-  const runOnce = async () => {
-    if (!device) return;
+  const computeStatus = (
+    hbStatus: "online" | "offline" | "stale",
+    probe?: Probe,
+    deviceStatus?: string
+  ): EffectiveStatus => {
+    if (deviceStatus === "maintenance") return "maintenance";
 
-    const started = performance.now();
-    window.logger?.debug?.(
-      `[useEffectiveStatus:${opts?.logKey ?? device.id}] probe:start`,
-      {
-        deviceId: device.id,
-        ip: device.deviceIp,
-        tcpPort: opts?.tcpPort ?? 22,
-        timeoutMs: opts?.timeoutMs ?? 1200,
-        staleMs: opts?.staleMs ?? 60_000,
-        offlineMs: opts?.offlineMs ?? 300_000,
+    if (hbStatus === "offline") {
+      if (probe && "reachable" in probe) {
+        return probe.reachable ? "fault" : "offline"; // ✅ แนว A
       }
-    );
-
-    const { status, hb, probe } = await computeEffectiveStatus(device, opts);
-    const took = Math.round(performance.now() - started);
-
-    setState(prev => {
-      const changed = !prev || prev.status !== status;
-      window.logger?.debug?.(
-        `[useEffectiveStatus:${opts?.logKey ?? device.id}] ${changed ? "status:changed" : "status:same"}`,
-        {
-          deviceId: device.id,
-          status,
-          hbStatus: hb.status,
-          probeOk: !!probe?.ok,
-          reachable: probe?.ok ? probe.reachable : undefined,
-          rttMs: probe?.ok ? probe.rttMs : undefined,
-          reason: changed ? `from ${prev?.status ?? "(none)"} → ${status}` : "no change",
-        }
-      );
-      window.logger?.debug?.(
-        `[useEffectiveStatus:${opts?.logKey ?? device.id}] probe:done`,
-        { tookMs: took }
-      );
-      return { status, hb, probe };
-    });
-  };
-
-  // ตั้ง interval
-  useEffect(() => {
-    // เคลียร์ตัวเก่า (ถ้ามี)
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
+      return "offline";
     }
 
-    // ถ้าไม่มี device ก็หยุดที่นี่แต่คง state เดิมไว้
-    if (!device) return;
-
-    // ยิงทันที 1 รอบ
-    runOnce();
-
-    // แล้วตั้ง interval
-    timerRef.current = window.setInterval(runOnce, pollingMs) as unknown as number;
-
-    // cleanup
-    return () => {
-      if (timerRef.current) {
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
+    if (hbStatus === "stale") {
+      if (probe && "reachable" in probe) {
+        return probe.reachable ? "online" : "offline";
       }
+      return "stale";
+    }
+
+    // hb online
+    if (probe && "reachable" in probe && !probe.reachable) return "fault";
+    return "online";
+  };
+
+  const runOnce = async (round: number) => {
+    if (!device) {
+      setState(s => ({ ...s, status: "offline", hb: null, probe: undefined }));
+      return;
+    }
+
+    const { id, lastHeartbeat, status: rawStatus, deviceIp } = device;
+
+    const hb = summarizeHeartbeat(rawStatus, lastHeartbeat, {
+      staleMs: cfg.staleMs,
+      offlineMs: cfg.offlineMs,
+    });
+
+    let probe: Probe | undefined = undefined;
+    const start = Date.now();
+    if (deviceIp && window.devices?.probe) {
+      window.logger?.debug?.(
+        `[renderer] [${label}] tick:${round}: start`,
+        { deviceId: id, ip: deviceIp, tcpPort: cfg.tcpPort, timeoutMs: cfg.timeoutMs, staleMs: cfg.staleMs, offlineMs: cfg.offlineMs }
+      );
+      try {
+        const pr = await window.devices.probe(deviceIp, cfg.tcpPort, cfg.timeoutMs);
+        probe = pr;
+      } catch (e: any) {
+        probe = { ok: false, error: String(e?.message ?? e) };
+      }
+    }
+
+    const nextStatus = computeStatus(hb.status, probe, rawStatus);
+
+    const prev = lastStatusRef.current;
+    if (prev !== nextStatus) {
+      window.logger?.debug?.(
+        `[renderer] [${label}] tick:${round}: status:changed`,
+        {
+          deviceId: id,
+          status: nextStatus,
+          hbStatus: hb.status,
+          probeOk: !!(probe && "ok" in probe && probe.ok),
+          reachable: (probe && "reachable" in probe) ? probe.reachable : undefined,
+          rttMs: (probe && "reachable" in probe) ? probe.rttMs : undefined,
+          reason: `from ${prev ?? "n/a"} → ${nextStatus}`
+        }
+      );
+      lastStatusRef.current = nextStatus;
+    } else {
+      window.logger?.debug?.(
+        `[renderer] [${label}] tick:${round}: status:same`,
+        {
+          deviceId: id,
+          status: nextStatus,
+          hbStatus: hb.status,
+          probeOk: !!(probe && "ok" in probe && probe.ok),
+          reachable: (probe && "reachable" in probe) ? probe.reachable : undefined,
+          rttMs: (probe && "reachable" in probe) ? probe.rttMs : undefined,
+          reason: "no change"
+        }
+      );
+    }
+
+    window.logger?.debug?.(
+      `[renderer] [${label}] tick:${round}: end`,
+      { tookMs: Date.now() - start }
+    );
+
+    setState(s => ({ ...s, status: nextStatus, hb, probe }));
+  };
+
+  useEffect(() => {
+    let round = 0;
+    let stopped = false;
+
+    const tick = () => {
+      if (stopped) return;
+      round += 1;
+      setState(s => ({ ...s, tick: round }));
+      runOnce(round);
     };
-    // ใช้ id/ip/logKey และช่วงเวลาเป็น dependency
-  }, [device?.id, device?.deviceIp, pollingMs, opts?.staleMs, opts?.offlineMs, opts?.tcpPort, opts?.timeoutMs, opts?.logKey]);
+
+    tick(); // run now
+
+    if (cfg.refreshMs > 0) {
+      const id = setInterval(tick, cfg.refreshMs);
+      stopRef.current = () => { stopped = true; clearInterval(id); };
+      return () => { stopped = true; clearInterval(id); };
+    } else {
+      stopRef.current = () => { stopped = true; };
+      return () => { stopped = true; };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    device?.id,
+    device?.deviceIp,
+    device?.status,
+    device?.lastHeartbeat,
+    cfg.refreshMs,
+    cfg.staleMs,
+    cfg.offlineMs,
+    cfg.tcpPort,
+    cfg.timeoutMs,
+    label
+  ]);
+
+  const refreshNow = useMemo(() => {
+    return () => {
+      stopRef.current?.();
+      const next = (state.tick ?? 0) + 1;
+      setState(s => ({ ...s, tick: next }));
+      runOnce(next);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device?.id, device?.deviceIp, device?.status, device?.lastHeartbeat, label]);
+
+  useEffect(() => {
+    setState(s => ({ ...s, refreshNow }));
+  }, [refreshNow]);
 
   return state;
 }
 
-// re-export helpers เผื่อใช้งานนอก hook
-export { isOnline } from "@/utils/effectiveStatus";
-export type { EffectiveStatus, ProbeResult } from "@/utils/effectiveStatus";
+// เผื่อมีที่ไหนยัง import ชื่อฟังก์ชันนี้จาก hook (ไม่บังคับใช้)
+export const isOnline = (s: EffectiveStatus) => s === "online";

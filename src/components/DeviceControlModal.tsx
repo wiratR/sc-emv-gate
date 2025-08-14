@@ -1,13 +1,14 @@
 // src/components/DeviceControlModal.tsx
 
-import useEffectiveStatus, { isOnline } from "@/hooks/useEffectiveStatus";
+import { isControllable, statusClass } from "@/utils/status";
 
 import { Device } from "@/models/device";
 import Modal from "@/components/Modal";
 import StatusModal from "@/components/StatusModal";
+import StatusPill from "@/components/StatusPill";
 import TerminalModal from "@/components/TerminalModal";
-import { statusClass } from "@/utils/status";
 import { useAuth } from "@/auth/AuthContext";
+import useEffectiveStatus from "@/hooks/useEffectiveStatus";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useState } from "react";
 
@@ -39,18 +40,6 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
   const [busy, setBusy] = useState(false);
   const [loadingLog, setLoadingLog] = useState(false);
 
-  // 🔐 เรียก hook เสมอ (รองรับ device = null ภายใน)
-  const eff = useEffectiveStatus(device, {
-    pollingMs: 6000,
-    staleMs: 60_000,
-    offlineMs: 300_000,
-    tcpPort: 22,
-    timeoutMs: 1200,
-    logKey: device ? `modal:${device.id}:${device.name}` : "modal:(no-device)",
-  });
-  const canControl = isOnline(eff.status);
-
-  // StatusModal state
   const [m, setM] = useState<ModalState>({
     open: false,
     variant: "info",
@@ -58,11 +47,21 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
     message: "",
   });
 
-  // ─────── ถ้าไม่มี device ให้รีเทิร์นโมดัลว่าง ๆ (แต่ hook ถูกเรียกไปแล้วด้านบน จึงไม่ผิดกติกา Hooks)
-  if (!device) return null;
+  // ใช้ hook (รองรับ device=null ได้)
+  const { status, hb, probe, refreshNow } = useEffectiveStatus(device ?? undefined, {
+    label: device ? `modal:${device.id}:${device.gateId ?? device.name}` : "modal:-",
+    refreshMs: open ? 6000 : 0,
+    tcpPort: 22,
+    timeoutMs: 1200,
+    staleMs: 60_000,
+    offlineMs: 300_000,
+  });
 
-  // ───────────────────────── Reboot ─────────────────────────
+  const canControl = isControllable(status);
+
+  // ─────────────── Reboot ───────────────
   const doReboot = async () => {
+    if (!device) return;
     try {
       setBusy(true);
       window.logger?.info?.("[device] reboot requested", { deviceId: device.id });
@@ -73,7 +72,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
           open: true,
           variant: "error",
           title: t("error") as string,
-          message: res?.error || "Reboot failed",
+          message: res?.error || (t("reboot_failed") as string) || "Reboot failed",
         });
       } else {
         window.logger?.info?.("[device] reboot ok", { deviceId: device.id });
@@ -90,7 +89,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
   };
 
   const askReboot = () => {
-    if (!isMaint) return;
+    if (!isMaint || !device) return;
     window.logger?.info?.("[modal] confirm reboot open", { deviceId: device.id, name: device.name });
     setM({
       open: true,
@@ -106,7 +105,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
 
   // ─────────────── Get Device Log ───────────────
   const handleGetDeviceLog = async () => {
-    if (!device.deviceIp) {
+    if (!device?.deviceIp) {
       setM({
         open: true,
         variant: "error",
@@ -116,7 +115,6 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
       return;
     }
 
-    // เปิดโมดัลสถานะกำลังทำงาน
     setLoadingLog(true);
     setM({
       open: true,
@@ -160,10 +158,29 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
     }
   };
 
+  // ถ้า modal ยังไม่เปิดหรือยังไม่มี device → render แค่ StatusModal ไว้
+  if (!open || !device) {
+    return (
+      <StatusModal
+        open={m.open}
+        variant={m.variant}
+        title={m.title}
+        message={m.message}
+        onClose={() => setM((x) => ({ ...x, open: false }))}
+        onConfirm={m.onConfirm}
+        confirmText={(t("confirm") as string) || "Confirm"}
+        cancelText={(t("cancel") as string) || "Cancel"}
+      />
+    );
+  }
+
   // ─────────────── Footer ───────────────
   const footer = (
     <>
-      <button onClick={onClose} className="px-4 py-2 rounded-lg border hover:bg-gray-50">
+      <button
+        onClick={onClose}
+        className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+      >
         {t("cancel")}
       </button>
       <button
@@ -171,14 +188,13 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
           if (!canControl) {
             window.logger?.warn?.("[device] gate op blocked (not online)", {
               deviceId: device.id,
-              deviceStatus: device.status,
-              effectiveStatus: eff.status,
+              effectiveStatus: status,
             });
             setM({
               open: true,
               variant: "info",
               title: t("info") as string,
-              message: t("not_online_warning") as string,
+              message: (t("operation_blocked") as string) || (t("not_online_warning") as string),
             });
             return;
           }
@@ -205,24 +221,28 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
         footer={footer}
         size="md"
       >
-        {/* สถานะย่อ */}
+        {/* Header: สรุป & badge */}
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-600">
             <div>
-              <span className="text-gray-200">{t("device_id")}:</span>{" "}
-              <span className="text-white">{device.id}</span>
+              <span className="text-gray-500">{t("device_id")}:</span>{" "}
+              <span className="text-gray-900">{device.id}</span>
             </div>
             <div>
-              <span className="text-gray-200">{t("device_gate")}:</span>{" "}
-              <span className="text-white">{device.gateId ?? "-"}</span>
+              <span className="text-gray-500">{t("device_gate")}:</span>{" "}
+              <span className="text-gray-900">{device.gateId ?? "-"}</span>
             </div>
             <div>
-              <span className="text-gray-200">{t("device_ip")}:</span>{" "}
-              <span className="text-white">{device.deviceIp ?? "-"}</span>
+              <span className="text-gray-500">{t("device_ip")}:</span>{" "}
+              <span className="text-gray-900">{device.deviceIp ?? "-"}</span>
             </div>
           </div>
-          <span className={`inline-flex items-center text-xs border px-2 py-0.5 rounded-full ${statusClass(eff.status)}`}>
-            {eff.status.toUpperCase()}
+          {/* pill แสดง effective status */}
+          <span
+            className={`inline-flex items-center text-xs border px-2 py-0.5 rounded-full ${statusClass(status)}`}
+            title={`effective: ${status}`}
+          >
+            {status.toUpperCase()}
           </span>
         </div>
 
@@ -233,23 +253,38 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
           </div>
         )}
 
-        {/* heartbeat */}
-        <div className="mt-3 text-xs text-gray-400">
+        {/* heartbeat & debug */}
+        <div className="mt-3 text-xs text-gray-600">
           <div>
-            {t("device_heartbeat")}: <span className="text-white">{device.lastHeartbeat ?? "-"}</span>
+            HB:&nbsp;
+            <span className="text-gray-900">
+              {hb?.agoText ? `${hb.agoText} (${device.lastHeartbeat ?? "-"})` : (device.lastHeartbeat ?? "-")}
+            </span>
           </div>
-          <div>
-            {t("last_seen")}: <span className="text-white">{eff.hb.agoText}</span>
+          <div className="mt-0.5">
+            Probe:&nbsp;
+            <span className="text-gray-900">
+              {typeof (probe as any)?.reachable === "boolean"
+                ? ((probe as any).reachable ? `reachable ~${(probe as any).rttMs} ms` : "unreachable")
+                : "—"}
+            </span>
+            <button
+              type="button"
+              onClick={refreshNow}
+              className="ml-2 inline-flex items-center gap-1 underline hover:no-underline"
+            >
+              ↻ Refresh
+            </button>
           </div>
         </div>
 
-        {/* เลือกคำสั่ง Gate */}
+        {/* เลือกคำสั่ง Gate (light mode) */}
         <fieldset className="mt-4 rounded-xl border p-3">
           <legend className="px-2 text-sm font-semibold">{t("gate_operation_control")}</legend>
           <label className="mt-2 block text-sm">
-            <span className="text-gray-200">{t("operation")}</span>
+            <span className="text-gray-600">{t("operation")}</span>
             <select
-              className="mt-1 w-full border rounded-lg px-3 py-2 disabled:bg-gray-100 disabled:text-gray-400"
+              className="mt-1 w-full border rounded-lg px-3 py-2 bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
               value={op}
               onChange={(e) => setOp(e.target.value as Operation)}
               disabled={!canControl}
@@ -261,7 +296,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
           </label>
         </fieldset>
 
-        {/* เฉพาะ Maintenance: Reboot / Console / Get Device Log */}
+        {/* Maintenance tools */}
         {isMaint && (
           <fieldset className="mt-4 rounded-xl border p-3">
             <legend className="px-2 text-sm font-semibold">{t("maintenance_tools")}</legend>
@@ -274,7 +309,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
                 {t("reboot_gate")}
               </button>
 
-              {isOnline(eff.status) && device.deviceIp && (
+              {status === "online" && device.deviceIp && (
                 <button
                   onClick={() => setShowTerm(true)}
                   className="px-4 py-2 rounded-lg border hover:bg-gray-50"
@@ -282,16 +317,17 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
                   {t("open_console")}
                 </button>
               )}
-
-              <button
-                onClick={handleGetDeviceLog}
-                disabled={loadingLog || !device.deviceIp}
-                className="px-4 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60"
-              >
-                {loadingLog ? (t("getting_logs") as string) : (t("get_device_log") as string)}
-              </button>
+              {status === "online" && device.deviceIp && (
+                <button
+                  onClick={handleGetDeviceLog}
+                  disabled={loadingLog || !device.deviceIp}
+                  className="px-4 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60"
+                >
+                  {loadingLog ? (t("getting_logs") as string) : (t("get_device_log") as string)}
+                </button>
+              )}
             </div>
-            <div className="mt-2 text-xs text-gray-500">{t("console_hint")}</div>
+            <div className="mt-2 text-xs text-gray-400">{t("console_hint")}</div>
           </fieldset>
         )}
 
@@ -304,7 +340,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
         />
       </Modal>
 
-      {/* Status Modal (confirm/info/success/error) */}
+      {/* Status Modal */}
       <StatusModal
         open={m.open}
         variant={m.variant}

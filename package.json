@@ -23,7 +23,8 @@
     "dev:electron": "wait-on http://localhost:5173 dist-electron/main.js && nodemon",
     "preview": "vite preview",
     "rebuild": "electron-rebuild -f -w better-sqlite3,node-pty",
-    "postinstall": "node scripts/postinstall.js"
+    "postinstall": "node scripts/postinstall.js",
+    "normalize:devices": "node scripts/normalize-devices.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

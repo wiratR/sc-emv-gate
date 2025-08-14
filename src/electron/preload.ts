@@ -52,24 +52,19 @@ contextBridge.exposeInMainWorld("devices", {
 });
 
 contextBridge.exposeInMainWorld("terminal", {
-  create: (opts?: { sshHost?: string; cols?: number; rows?: number; cwd?: string }) =>
-    ipcRenderer.invoke("terminal:create", opts),
-  write: (id: string, data: string) => ipcRenderer.send("terminal:write", id, data),
-  resize: (id: string, cols: number, rows: number) => ipcRenderer.send("terminal:resize", id, cols, rows),
-  kill: (id: string) => ipcRenderer.invoke("terminal:kill", id),
-
-  onData: (id: string, cb: (chunk: string) => void) => {
-    const ch = `terminal:data:${id}`;
-    const fn = (_: any, data: string) => cb(data);
-    ipcRenderer.on(ch, fn);
-    return () => ipcRenderer.removeListener(ch, fn);
-  },
-  onExit: (id: string, cb: () => void) => {
-    const ch = `terminal:exit:${id}`;
-    const fn = () => cb();
-    ipcRenderer.on(ch, fn);
-    return () => ipcRenderer.removeListener(ch, fn);
-  },
+  create: (opts?: any) => ipcRenderer.invoke("terminal:create", opts),
+  write: (id: string, data: string) => ipcRenderer.invoke("terminal:write", { id, data }),
+  resize: (id: string, cols: number, rows: number) =>
+    ipcRenderer.invoke("terminal:resize", { id, cols, rows }),
+  kill: (id: string) => ipcRenderer.invoke("terminal:kill", { id }),
+  onData: (cb: (_: any, p: { id: string; data: string }) => void) =>
+    ipcRenderer.on("terminal:data", cb),
+  offData: (cb: (_: any, p: { id: string; data: string }) => void) =>
+    ipcRenderer.removeListener("terminal:data", cb),
+  onExit: (cb: (_: any, p: { id: string; exitCode?: number; signal?: number }) => void) =>
+    ipcRenderer.on("terminal:exit", cb),
+  offExit: (cb: (_: any, p: { id: string; exitCode?: number; signal?: number }) => void) =>
+    ipcRenderer.removeListener("terminal:exit", cb),
 });
 
 // Types (optional)

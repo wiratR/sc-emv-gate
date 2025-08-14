@@ -66,12 +66,21 @@ declare global {
 
     };
     terminal?: {
-      create: (opts?: { sshHost?: string; cols?: number; rows?: number; cwd?: string }) => Promise<{ ok: boolean; id?: string; error?: string }>;
-      write: (id: string, data: string) => void;
-      resize: (id: string, cols: number, rows: number) => void;
-      kill: (id: string) => Promise<{ ok: boolean }>;
-      onData: (id: string, cb: (data: string) => void) => () => void;
-      onExit: (id: string, cb: () => void) => () => void;
+      create: (opts?: {
+        sshHost?: string;
+        cols?: number;
+        rows?: number;
+        cwd?: string;
+        shell?: string;
+      }) => Promise<{ ok: true; id: string } | { ok: false; error: string }>;
+      write: (id: string, data: string) => Promise<{ ok: boolean; error?: string }>;
+      resize: (id: string, cols: number, rows: number) => Promise<{ ok: boolean; error?: string }>;
+      kill: (id: string) => Promise<{ ok: boolean; error?: string }>;
+      // ✅ รูปแบบใหม่: รับ callback “ตัวเดียว”
+      onData: (cb: (_e: any, p: { id: string; data: string }) => void) => void;
+      offData: (cb: (_e: any, p: { id: string; data: string }) => void) => void;
+      onExit: (cb: (_e: any, p: { id: string; exitCode?: number; signal?: number }) => void) => void;
+      offExit: (cb: (_e: any, p: { id: string; exitCode?: number; signal?: number }) => void) => void;
     };
   }
 }

@@ -1,5 +1,4 @@
 // src/electron/config.ts
-
 import { app } from "electron";
 import fs from "fs";
 import path from "path";
@@ -13,17 +12,21 @@ export type StationName =
 export type AppConfig = {
   databasePath: string;
   logsPath: string;
-  logLevel: "debug" | "info" | "warn" | "error";
+  logLevel: LogLevel;
   logsRetentionDays: number;
   environment: "development" | "production";
   deviceCommunicationPath?: string;
+
+  // Station / Display
   stationIp?: string;
   stationName?: StationName;
   stationId?: string;
-  fullScreen?: boolean;        // 👈 เพิ่ม
+  fullScreen?: boolean;
+
+  // ✅ ใหม่: พอร์ตสำหรับรับ Heartbeat
+  heartbeatPort?: number;
 };
 
-// เพิ่ม default (ตามความเหมาะสม)
 const DEFAULTS: AppConfig = {
   databasePath: "./database/app.sqlite",
   logsPath: "./logs",
@@ -34,7 +37,10 @@ const DEFAULTS: AppConfig = {
   stationId: "",
   stationIp: "",
   deviceCommunicationPath: "./data",
-  fullScreen: false,           // 👈 เพิ่ม
+  fullScreen: false,
+
+  // ✅ ดีฟอลต์ 3070
+  heartbeatPort: 3070,
 };
 
 let cached: AppConfig | undefined;
@@ -47,7 +53,6 @@ function resolveCandidatePaths() {
   return [userDataCfg, resourceCfg, devCfg];
 }
 
-// ช่วยเลือกชื่อสถานีตามภาษา พร้อม fallback
 export function resolveStationName(
   name: StationName | undefined,
   lang: "en" | "th"

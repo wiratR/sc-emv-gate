@@ -14,18 +14,23 @@ export type DeviceStatus = "online" | "offline" | "fault" | "maintenance";
 export type Device = {
   id: string;
   gateId?: string;
-  name: string;
-  side: "north" | "south";
+  name?: string;
+  side?: "north" | "south";
   type?: string;
-  status: DeviceStatus;
+  status?: DeviceStatus;
   lastHeartbeat?: string;
   message?: string;
   deviceIp?: string;
+  // อาจโผล่มาจาก heartbeat/raw
+  ip?: string;
+  ts?: string;
 };
 
 let filePath = "";
 let cache: Device[] = [];
 let watching = false;
+
+// ───────────────────────────────── helpers ─────────────────────────────────
 
 function ensureDirExists(p: string) {
   try { fs.mkdirSync(p, { recursive: true }); } catch {}
@@ -38,18 +43,38 @@ function ensureFileExists(jsonPath: string) {
     console.log("[devices] created empty file:", jsonPath);
   }
 }
+
+/** รองรับ [], {devices: []}, และ object map */
+function coerceDevices(data: any): Device[] {
+  if (Array.isArray(data)) return data as Device[];
+  if (data && Array.isArray((data as any).devices)) return (data as any).devices as Device[];
+  if (data && typeof data === "object") return Object.values(data) as Device[];
+  return [];
+}
+
+/** map ip->deviceIp, ts->lastHeartbeat, ใส่ status default */
+function normalizeDeviceFields(d: Device): Device {
+  const out: Device = { ...d };
+  if (!out.deviceIp && out.ip) out.deviceIp = out.ip;
+  if (!out.lastHeartbeat && out.ts) out.lastHeartbeat = out.ts;
+  if (!out.status) out.status = "offline";
+  return out;
+}
+
 function safeReadDevices(jsonPath: string): Device[] {
   try {
     ensureFileExists(jsonPath);
     const raw = fs.readFileSync(jsonPath, "utf-8");
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed as Device[];
-    console.warn("[devices] parsed JSON is not array");
+    const list = coerceDevices(parsed).map(normalizeDeviceFields);
+    return list;
   } catch (e) {
     console.error("[devices] read error:", e);
+    return [];
   }
-  return [];
 }
+
+// ───────────────────────────────── SSH/Terminal ────────────────────────────
 
 async function openSSHConsole(ip: string) {
   const platform = os.platform();
@@ -65,7 +90,7 @@ async function openSSHConsole(ip: string) {
     });
   }
   if (platform === "win32") {
-    // เด้ง cmd ใหม่แล้วรัน ssh
+    // เปิด cmd ใหม่แล้วรัน ssh
     spawn("cmd.exe", ["/c", "start", "cmd", "/k", `ssh ${ip}`], { windowsHide: false, detached: true });
     return { ok: true };
   }
@@ -86,6 +111,8 @@ async function openSSHConsole(ip: string) {
   return { ok: false, error: "No terminal found" };
 }
 
+// ───────────────────────────────── IPC setup ───────────────────────────────
+
 export function setupDeviceIPC(getWindow: () => BrowserWindow | null, customFilePath?: string) {
   filePath = customFilePath || filePath;
   console.log("[devices] setup, file =", filePath);
@@ -93,7 +120,7 @@ export function setupDeviceIPC(getWindow: () => BrowserWindow | null, customFile
   // initial load
   if (filePath) cache = safeReadDevices(filePath);
 
-  // === IPC handlers (ลงทะเบียนที่นี่ทั้งหมด) ===
+  // handlers
   ipcMain.handle("devices:get", () => {
     return { ok: true, devices: cache, path: filePath };
   });
@@ -114,7 +141,7 @@ export function setupDeviceIPC(getWindow: () => BrowserWindow | null, customFile
     }
   });
 
-  // file watcher
+  // file watcher (debounce เล็กน้อย กัน partial write)
   if (!watching && filePath) {
     watching = true;
     const dir = path.dirname(filePath);
@@ -128,10 +155,12 @@ export function setupDeviceIPC(getWindow: () => BrowserWindow | null, customFile
         if (win && !win.isDestroyed()) {
           win.webContents.send("devices:updated", cache);
         }
-      }, 80);
+      }, 120);
     });
   }
 }
+
+// ───────────────────────────────── Probe (TCP) ─────────────────────────────
 
 ipcMain.handle("devices:probe", async (_e, payload: { host?: string; port?: number; timeoutMs?: number }) => {
   const host = payload?.host?.trim();
@@ -143,6 +172,8 @@ ipcMain.handle("devices:probe", async (_e, payload: { host?: string; port?: numb
     return { ok: false as const, error: String(e?.message || e) };
   }
 });
+
+// ───────────────────────────────── Get Device Log ──────────────────────────
 
 function run(cmd: string, args: string[], timeoutMs = 120_000): Promise<RunResult> {
   return new Promise((resolve) => {
@@ -165,7 +196,12 @@ function run(cmd: string, args: string[], timeoutMs = 120_000): Promise<RunResul
 async function waitForRemoteFile(host: string, remotePath: string, timeoutMs = 90_000, intervalMs = 1_500) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const r = await run("ssh", [host, "test", "-f", remotePath], 8_000);
+    const r = await run("ssh", [
+      "-o", "BatchMode=yes",
+      "-o", "StrictHostKeyChecking=no",
+      "-o", "ConnectTimeout=8",
+      host, "test", "-f", remotePath
+    ], 10_000);
     if (r.code === 0) return true;
     await new Promise((r) => setTimeout(r, intervalMs));
   }
@@ -177,33 +213,47 @@ ipcMain.handle("devices:get-log", async (_e, args: { host?: string; remotePath?:
   const remoteLog = args?.remotePath || "/tmp/log.tar.gz";
   if (!host) return { ok: false, error: "No host/IP provided" };
 
-  // 1) trigger script ให้เครื่องปลายทาง zip log
-  const mk = await run("ssh", [host, "bash", "-lc", "/afc/scripts/mklog.sh"], 180_000);
+  // 1) trigger script ฝั่งปลายทาง
+  const mk = await run("ssh", [
+    "-o", "BatchMode=yes",
+    "-o", "StrictHostKeyChecking=no",
+    "-o", "ConnectTimeout=10",
+    host, "bash", "-lc", "/afc/scripts/mklog.sh"
+  ], 180_000);
   if (mk.code !== 0) {
     return { ok: false, error: `mklog failed: ${mk.stderr || mk.stdout || mk.code}` };
   }
 
-  // 2) รอไฟล์ /tmp/log.tar.gz โผล่
+  // 2) รอไฟล์โผล่
   const ok = await waitForRemoteFile(host, remoteLog, 120_000, 2_000);
   if (!ok) {
-    return { ok: false, error: "Timeout waiting for /tmp/log.tar.gz" };
+    return { ok: false, error: `Timeout waiting for ${remoteLog}` };
   }
 
-  // 3) ดึงกลับมาเก็บใน Downloads/sc-emv-gate-logs
+  // 3) scp กลับมา
   const downloads = app.getPath("downloads");
   const outDir = path.join(downloads, "sc-emv-gate-logs");
   fs.mkdirSync(outDir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const outPath = path.join(outDir, `device-log-${host}-${ts}.tar.gz`);
 
-  const cp = await run("scp", [`${host}:${remoteLog}`, outPath], 120_000);
+  const cp = await run("scp", [
+    "-o", "BatchMode=yes",
+    "-o", "StrictHostKeyChecking=no",
+    "-o", "ConnectTimeout=10",
+    `${host}:${remoteLog}`, outPath
+  ], 120_000);
   if (cp.code !== 0) {
     return { ok: false, error: `scp failed: ${cp.stderr || cp.stdout || cp.code}` };
   }
 
-  // 4) ลบไฟล์ชั่วคราวฝั่งเครื่องปลายทาง (best-effort)
-  run("ssh", [host, "rm", "-f", remoteLog]).catch(() => {});
+  // 4) ลบไฟล์ชั่วคราวปลายทาง (best-effort)
+  run("ssh", [
+    "-o", "BatchMode=yes",
+    "-o", "StrictHostKeyChecking=no",
+    "-o", "ConnectTimeout=8",
+    host, "rm", "-f", remoteLog
+  ]).catch(() => {});
 
   return { ok: true, path: outPath };
 });
-
