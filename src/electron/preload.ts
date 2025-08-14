@@ -43,6 +43,12 @@ contextBridge.exposeInMainWorld("devices", {
   },
   reboot: (deviceId: string) => ipcRenderer.invoke("devices:reboot", deviceId),
   openSSH: (ip: string) => ipcRenderer.invoke("devices:ssh", ip), 
+  probe: (host: string, port?: number, timeoutMs?: number) =>
+    ipcRenderer.invoke("devices:probe", { host, port, timeoutMs }) as Promise<
+      { ok: true; reachable: boolean; rttMs: number } | { ok: false; error: string }
+    >,
+  getDeviceLog: (args: { host: string; remotePath?: string }) =>
+    ipcRenderer.invoke("devices:get-log", args),
 });
 
 contextBridge.exposeInMainWorld("terminal", {

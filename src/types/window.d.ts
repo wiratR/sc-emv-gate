@@ -53,6 +53,17 @@ declare global {
       openSSH?: (ip: string) => Promise<{ ok: boolean; error?: string }>;
       reboot?: (deviceId: string) => Promise<{ ok: boolean; error?: string }>;
       openSSH?: (ip: string) => Promise<{ ok: boolean; error?: string }>;
+      getDeviceLog?: (args: {
+        host: string;
+        remotePath?: string;
+      }) => Promise<{ ok: true; path: string } | { ok: false; error: string }>;
+      // ipc/devices/probe.ts
+      probe?: (
+        host: string,
+        port?: number,
+        timeoutMs?: number
+      ) => Promise<{ ok: true; reachable: boolean; rttMs: number } | { ok: false; error: string }>;
+
     };
     terminal?: {
       create: (opts?: { sshHost?: string; cols?: number; rows?: number; cwd?: string }) => Promise<{ ok: boolean; id?: string; error?: string }>;

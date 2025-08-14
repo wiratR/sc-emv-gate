@@ -85,7 +85,13 @@ export const translations: Record<Lang, Record<string, string>> = {
     ssh_session: "เชื่อมต่อ SSH แบบโต้ตอบ",
     local_shell: "เชลล์ภายในเครื่อง",
     terminate_hint: "กด Ctrl+C/D เพื่อออก",
-    
+
+    // 👉 Device log actions
+    get_device_log: "ดึงไฟล์ล็อกอุปกรณ์",
+    getting_logs: "กำลังดึงล็อก...",
+    device_log_ok: "ดึงล็อกเสร็จแล้ว",
+    device_log_failed: "ดึงล็อกไม่สำเร็จ",
+
     // Side labels
     side_north: "ทิศเหนือ",
     side_south: "ทิศใต้",
@@ -199,6 +205,12 @@ export const translations: Record<Lang, Record<string, string>> = {
     ssh_session: "Interactive SSH session",
     local_shell: "Local shell",
     terminate_hint: "Press Ctrl+C/D to exit",
+
+    // 👉 Device log actions
+    get_device_log: "Get Device Log",
+    getting_logs: "Getting logs...",
+    device_log_ok: "Device log fetched",
+    device_log_failed: "Get device log failed",
 
     // Side labels
     side_north: "North",
