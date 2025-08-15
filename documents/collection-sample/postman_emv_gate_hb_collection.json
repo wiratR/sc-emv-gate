@@ -1,0 +1,103 @@
+{
+  "info": {
+    "name": "EMV Gate Heartbeat",
+    "_postman_id": "965324cf-a00d-4477-be90-8a0f2516a987",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "POST /hb \u2013 heartbeat ONLINE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "name": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/hb",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "hb"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"G1-01\",\n  \"ip\": \"192.168.1.101\",\n  \"status\": \"online\",\n  \"ts\": \"{{$isoTimestamp}}\"\n}"
+        },
+        "description": "Send an ONLINE heartbeat for device G1-01"
+      },
+      "response": []
+    },
+    {
+      "name": "POST /hb \u2013 heartbeat FAULT",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "name": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/hb",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "hb"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"G1-01\",\n  \"ip\": \"192.168.1.101\",\n  \"status\": \"fault\",\n  \"ts\": \"{{$isoTimestamp}}\",\n  \"message\": \"Reader error\"\n}"
+        },
+        "description": "Send a FAULT heartbeat"
+      },
+      "response": []
+    },
+    {
+      "name": "POST /hb \u2013 heartbeat OFFLINE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "name": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/hb",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "hb"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"G1-01\",\n  \"ip\": \"192.168.1.101\",\n  \"status\": \"offline\",\n  \"ts\": \"{{$isoTimestamp}}\"\n}"
+        },
+        "description": "Send an explicit OFFLINE heartbeat (optional; app also marks offline if no HB for offlineMs)"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3070",
+      "type": "string"
+    }
+  ]
+}
