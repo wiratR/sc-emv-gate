@@ -1,16 +1,48 @@
 // src/components/DeviceCard.tsx
+
 import { Device } from "@/models/device";
 import { sideLabel } from "@/utils/side";
 import { statusClass } from "@/utils/status";
+import useEffectiveStatus from "@/hooks/useEffectiveStatus";
 import { useI18n } from "@/i18n/I18nProvider";
 
-export default function DeviceCard({ device, onClick }: { device: Device; onClick?: (d: Device) => void }) {
+export default function DeviceCard({
+  device,
+  onClick,
+}: {
+  device: Device;
+  onClick?: (d: Device) => void;
+}) {
   const { t, lang } = useI18n();
-  const labelCls = "font-bold text-gray-700"; // ⬅️ ทำให้ตัวหนา
+  const labelCls = "font-bold text-gray-700";
+
+  // ใช้ effective status (probe + heartbeat)
+  const { status, hb, probe } = useEffectiveStatus(device, {
+    label: `card:${device.id}:${device.gateId ?? device.name}`,
+    refreshMs: 8000,
+    tcpPort: 22,
+    timeoutMs: 1200,
+    staleMs: 60_000,
+    offlineMs: 300_000,
+  });
+
+  const statusText =
+    (t(status) as string)?.toUpperCase?.() || status.toUpperCase();
 
   const badge = (
-    <span className={`inline-flex items-center text-xs border px-2 py-0.5 rounded-full ${statusClass(device.status)}`}>
-      {t(device.status).toUpperCase()}
+    <span
+      className={`inline-flex items-center text-xs border px-2 py-0.5 rounded-full ${statusClass(status)}`}
+      title={[
+        `effective: ${status}`,
+        hb?.agoText ? `last seen: ${hb.agoText}` : "",
+        probe && "reachable" in probe
+          ? `rtt: ${probe.rttMs}ms, reachable: ${probe.reachable}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+    >
+      {statusText}
     </span>
   );
 
@@ -19,8 +51,8 @@ export default function DeviceCard({ device, onClick }: { device: Device; onClic
       type="button"
       onClick={() => onClick?.(device)}
       className="text-left rounded-2xl border p-4 bg-white hover:shadow transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
-      aria-label={`${device.name} – ${t(device.status)}`}
-      title={`${device.name} – ${t(device.status)}`}
+      aria-label={`${device.name} – ${statusText}`}
+      title={`${device.name} – ${statusText}`}
     >
       <div className="flex items-center justify-between">
         <div className="font-medium">{device.name}</div>
@@ -41,10 +73,19 @@ export default function DeviceCard({ device, onClick }: { device: Device; onClic
         <div className="text-gray-900">{device.type ?? "-"}</div>
 
         <div className={labelCls}>{t("device_ip")}</div>
-        <div className="text-gray-900">{device.deviceIp ?? "-"}</div>
+        <div className="text-gray-900">
+          {device.deviceIp ?? "-"}
+          {probe && "reachable" in probe && (
+            <span className="ml-2 text-xs text-gray-500">
+              • {probe.reachable ? `${probe.rttMs}ms` : "unreachable"}
+            </span>
+          )}
+        </div>
 
         <div className={labelCls}>{t("device_heartbeat")}</div>
-        <div className="text-gray-900">{device.lastHeartbeat ?? "-"}</div>
+        <div className="text-gray-900">
+          {hb?.agoText ?? device.lastHeartbeat ?? "-"}
+        </div>
 
         {device.message && (
           <>
