@@ -2,6 +2,8 @@
 
 import { contextBridge, ipcRenderer } from "electron";
 
+import type { Operation } from "./models/operations";
+
 function write(level: "debug" | "info" | "warn" | "error", args: any[]) {
   ipcRenderer.send("log:write", { level, args });
 }
@@ -49,6 +51,11 @@ contextBridge.exposeInMainWorld("devices", {
     >,
   getDeviceLog: (args: { host: string; remotePath?: string }) =>
     ipcRenderer.invoke("devices:get-log", args),
+  getCurrentOperation: (deviceId: string) =>
+    ipcRenderer.invoke("devices:get-current-operation", deviceId) as Promise<
+      | { ok: true; operation: Operation | null }
+      | { ok: false; error: string }
+    >,
 });
 
 contextBridge.exposeInMainWorld("terminal", {

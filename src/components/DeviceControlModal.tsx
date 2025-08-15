@@ -1,6 +1,6 @@
 // src/components/DeviceControlModal.tsx
 
-import { isControllable, statusClass } from "@/utils/status";
+import { useEffect, useState } from "react";
 
 import { Device } from "@/models/device";
 import Modal from "@/components/Modal";
@@ -10,9 +10,15 @@ import TerminalModal from "@/components/TerminalModal";
 import { useAuth } from "@/auth/AuthContext";
 import useEffectiveStatus from "@/hooks/useEffectiveStatus";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useState } from "react";
+import useProbePort from "@/hooks/useProbePort";
 
-type Operation = "inservice" | "station_close" | "emergency";
+type Operation =
+  | "inservice_entry"
+  | "inservice_exit"
+  | "inservice_bidirect"
+  | "out_of_service"
+  | "station_close"
+  | "emergency";
 
 type Props = {
   open: boolean;
@@ -36,9 +42,13 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
   const isMaint = user?.role === "maintenance";
 
   const [showTerm, setShowTerm] = useState(false);
-  const [op, setOp] = useState<Operation>("inservice");
+  const [op, setOp] = useState<Operation>("inservice_bidirect");
   const [busy, setBusy] = useState(false);
   const [loadingLog, setLoadingLog] = useState(false);
+
+  // Current operation (for display) + loading state
+  const [currentOp, setCurrentOp] = useState<Operation | null>(null);
+  const [loadingOp, setLoadingOp] = useState(false);
 
   const [m, setM] = useState<ModalState>({
     open: false,
@@ -46,18 +56,74 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
     title: "",
     message: "",
   });
+  
+  const probePort = useProbePort(22); // default 22; จะ override ด้วย config
 
   // ใช้ hook (รองรับ device=null ได้)
   const { status, hb, probe, refreshNow } = useEffectiveStatus(device ?? undefined, {
     label: device ? `modal:${device.id}:${device.gateId ?? device.name}` : "modal:-",
     refreshMs: open ? 6000 : 0,
-    tcpPort: 22,
+    tcpPort: probePort,
     timeoutMs: 1200,
     staleMs: 60_000,
     offlineMs: 300_000,
   });
 
-  const canControl = isControllable(status);
+  // ควบคุมได้เฉพาะตอน online
+  const canControl = status === "online";
+
+  // ───────────────── Type guard & labels ─────────────────
+  const isOp = (x: any): x is Operation =>
+    x === "inservice_entry" ||
+    x === "inservice_exit" ||
+    x === "inservice_bidirect" ||
+    x === "out_of_service" ||
+    x === "station_close" ||
+    x === "emergency";
+
+  const opLabel = (o: Operation) => {
+    switch (o) {
+      case "inservice_entry":    return (t("op_inservice_entry") as string) || "Inservice – Entry";
+      case "inservice_exit":     return (t("op_inservice_exit") as string) || "Inservice – Exit";
+      case "inservice_bidirect": return (t("op_inservice_bi") as string)   || "Inservice – Bi-direction";
+      case "out_of_service":     return (t("op_out_of_service") as string) || "Out of service";
+      case "station_close":      return (t("op_station_close") as string)  || "Station Close";
+      case "emergency":          return (t("op_emergency") as string)      || "Emergency";
+    }
+  };
+
+  // ─────────────── โหลดสถานะ operation ปัจจุบันเมื่อเปิดโมดัล ───────────────
+  useEffect(() => {
+    if (!open || !device?.id) return;
+
+    let cancelled = false;
+    setLoadingOp(true);
+
+    window.devices?.getCurrentOperation?.(device.id)
+      .then((res) => {
+        if (cancelled) return;
+
+        if (res?.ok) {
+          const serverOp = res.operation;
+          window.logger?.info?.("[modal] getCurrentOperation", { deviceId: device.id, op: serverOp });
+
+          if (isOp(serverOp)) {
+            setCurrentOp(serverOp);
+            setOp(serverOp); // ตั้ง dropdown ให้ตรงกับสถานะล่าสุด
+          } else {
+            setCurrentOp(null);
+          }
+        } else {
+          window.logger?.warn?.("[modal] getCurrentOperation failed", { deviceId: device.id, error: res?.error });
+          setCurrentOp(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOp(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [open, device?.id]);
 
   // ─────────────── Reboot ───────────────
   const doReboot = async () => {
@@ -177,10 +243,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
   // ─────────────── Footer ───────────────
   const footer = (
     <>
-      <button
-        onClick={onClose}
-        className="px-4 py-2 rounded-lg border hover:bg-gray-50"
-      >
+      <button onClick={onClose} className="px-4 py-2 rounded-lg border hover:bg-gray-50">
         {t("cancel")}
       </button>
       <button
@@ -237,13 +300,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
               <span className="text-gray-900">{device.deviceIp ?? "-"}</span>
             </div>
           </div>
-          {/* pill แสดง effective status */}
-          <span
-            className={`inline-flex items-center text-xs border px-2 py-0.5 rounded-full ${statusClass(status)}`}
-            title={`effective: ${status}`}
-          >
-            {status.toUpperCase()}
-          </span>
+          <StatusPill status={status} title={`effective: ${status}`} />
         </div>
 
         {/* แจ้งเตือนควบคุมไม่ได้ */}
@@ -258,13 +315,13 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
           <div>
             HB:&nbsp;
             <span className="text-gray-900">
-              {hb?.agoText ? `${hb.agoText} (${device.lastHeartbeat ?? "-"})` : (device.lastHeartbeat ?? "-")}
+              {hb?.agoText ? `${hb.agoText} (${device.lastHeartbeat ?? "-"})` : device.lastHeartbeat ?? "-"}
             </span>
           </div>
           <div className="mt-0.5">
             Probe:&nbsp;
             <span className="text-gray-900">
-              {typeof (probe as any)?.reachable === "boolean"
+              {"reachable" in (probe || {}) && typeof (probe as any).reachable === "boolean"
                 ? ((probe as any).reachable ? `reachable ~${(probe as any).rttMs} ms` : "unreachable")
                 : "—"}
             </span>
@@ -278,9 +335,20 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
           </div>
         </div>
 
-        {/* เลือกคำสั่ง Gate (light mode) */}
+        {/* เลือกคำสั่ง Gate — ใช้ Dropdown + Optgroup */}
         <fieldset className="mt-4 rounded-xl border p-3">
           <legend className="px-2 text-sm font-semibold">{t("gate_operation_control")}</legend>
+
+          {/* แสดง current operation */}
+          <div className="mt-1 text-xs text-gray-500">
+            {(t("current_operation") as string) || "Current operation"}:{" "}
+            {loadingOp ? (t("loading") as string) || "Loading..." : (
+              <span className="text-gray-900">
+                {currentOp ? opLabel(currentOp) : "—"}
+              </span>
+            )}
+          </div>
+
           <label className="mt-2 block text-sm">
             <span className="text-gray-600">{t("operation")}</span>
             <select
@@ -289,9 +357,16 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
               onChange={(e) => setOp(e.target.value as Operation)}
               disabled={!canControl}
             >
-              <option value="inservice">{t("op_inservice")}</option>
-              <option value="station_close">{t("op_station_close")}</option>
-              <option value="emergency">{t("op_emergency")}</option>
+              <optgroup label={(t("inservice_group") as string) || "Inservice"}>
+                <option value="inservice_entry">{t("op_inservice_entry")}</option>
+                <option value="inservice_exit">{t("op_inservice_exit")}</option>
+                <option value="inservice_bidirect">{t("op_inservice_bi")}</option>
+              </optgroup>
+              <optgroup label={(t("other_ops_group") as string) || "Other"}>
+                <option value="out_of_service">{t("op_out_of_service")}</option>
+                <option value="station_close">{t("op_station_close")}</option>
+                <option value="emergency">{t("op_emergency")}</option>
+              </optgroup>
             </select>
           </label>
         </fieldset>
@@ -317,6 +392,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
                   {t("open_console")}
                 </button>
               )}
+
               {status === "online" && device.deviceIp && (
                 <button
                   onClick={handleGetDeviceLog}

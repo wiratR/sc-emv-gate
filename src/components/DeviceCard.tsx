@@ -5,6 +5,7 @@ import { sideLabel } from "@/utils/side";
 import { statusClass } from "@/utils/status";
 import useEffectiveStatus from "@/hooks/useEffectiveStatus";
 import { useI18n } from "@/i18n/I18nProvider";
+import useProbePort from "@/hooks/useProbePort";
 
 export default function DeviceCard({
   device,
@@ -15,12 +16,13 @@ export default function DeviceCard({
 }) {
   const { t, lang } = useI18n();
   const labelCls = "font-bold text-gray-700";
+  const probePort = useProbePort(22); // default 22; จะ override ด้วย config
 
   // ใช้ effective status (probe + heartbeat)
   const { status, hb, probe } = useEffectiveStatus(device, {
     label: `card:${device.id}:${device.gateId ?? device.name}`,
     refreshMs: 8000,
-    tcpPort: 22,
+    tcpPort: probePort,
     timeoutMs: 1200,
     staleMs: 60_000,
     offlineMs: 300_000,

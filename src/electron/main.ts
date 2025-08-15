@@ -12,6 +12,8 @@ import { setupDeviceIPC } from "./ipc/device";
 import { setupTerminalIPC } from "./ipc/terminal";
 import { setupUsersIPC } from "./ipc/user";
 import { startHeartbeatServerFromConfig, type HeartbeatServer } from "./heartbeatServer";
+import { setHeartbeatServerRef } from "./main-hb-ref";
+
 import url from "url";
 
 let hbServer: HeartbeatServer | null = null;
@@ -195,6 +197,7 @@ if (!gotLock) {
   app.whenReady().then(() => {
     // ✅ เริ่ม HTTP Heartbeat จาก config
     hbServer = startHeartbeatServerFromConfig();
+    setHeartbeatServerRef(hbServer);
     void createWindow();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) void createWindow();
@@ -213,5 +216,6 @@ if (!gotLock) {
       console.error("[main] Failed to clear session data:", err);
     }
     try { hbServer?.close(); } catch {}
+    setHeartbeatServerRef(null);
   });
 }

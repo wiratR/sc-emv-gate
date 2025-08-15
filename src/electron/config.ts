@@ -25,6 +25,8 @@ export type AppConfig = {
 
   // ✅ ใหม่: พอร์ตสำหรับรับ Heartbeat
   heartbeatPort?: number;
+  // NEW: TCP port used to probe device reachability (SSH or custom)
+  deviceProbePort?: number;
 };
 
 const DEFAULTS: AppConfig = {
@@ -41,6 +43,8 @@ const DEFAULTS: AppConfig = {
 
   // ✅ ดีฟอลต์ 3070
   heartbeatPort: 3070,
+
+  deviceProbePort: 22,
 };
 
 let cached: AppConfig | undefined;

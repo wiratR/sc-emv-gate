@@ -24,7 +24,18 @@
     "preview": "vite preview",
     "rebuild": "electron-rebuild -f -w better-sqlite3,node-pty",
     "postinstall": "node scripts/postinstall.js",
-    "normalize:devices": "node scripts/normalize-devices.js"
+    "normalize:devices": "node scripts/normalize-devices.js",
+    "mock:hb": "bash scripts/mock-device.sh",
+    "mock:hb:win": "powershell -ExecutionPolicy Bypass -File scripts/mock-device.ps1",
+    "mock:probe": "bash scripts/mock-probe.sh",
+    "mock:probe:win": "powershell -ExecutionPolicy Bypass -File scripts/mock-probe.ps1",
+    "mock:op:set:entry": "node scripts/mock-op.mjs set G1-01 inservice_entry",
+    "mock:op:set:exit": "node scripts/mock-op.mjs set G1-01 inservice_exit",
+    "mock:op:set:bi": "node scripts/mock-op.mjs set G1-01 inservice_bidirect",
+    "mock:op:set:oos": "node scripts/mock-op.mjs set G1-01 out_of_service",
+    "mock:op:set:close": "node scripts/mock-op.mjs set G1-01 station_close",
+    "mock:op:set:emg": "node scripts/mock-op.mjs set G1-01 emergency",
+    "mock:op:get": "node scripts/mock-op.mjs get G1-01"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

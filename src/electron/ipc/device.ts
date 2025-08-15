@@ -2,7 +2,9 @@
 
 import { BrowserWindow, app, ipcMain } from "electron";
 
+import type { Operation } from "../models/operations";
 import fs from "fs";
+import { getHeartbeatServer } from "../main-hb-ref"; // ดูข้อถัดไป
 import os from "os";
 import path from "path";
 import { probeTcp } from "./devices/probe";
@@ -256,4 +258,19 @@ ipcMain.handle("devices:get-log", async (_e, args: { host?: string; remotePath?:
   ]).catch(() => {});
 
   return { ok: true, path: outPath };
+});
+
+ipcMain.handle("devices:get-current-operation", async (_e, deviceId: string): Promise<
+  | { ok: true; operation: Operation | null }
+  | { ok: false; error: string }
+> => {
+  if (!deviceId) return { ok: false, error: "missing deviceId" };
+  try {
+    const hb = getHeartbeatServer();
+    if (!hb) return { ok: false, error: "heartbeat server is not running" };
+    const op = hb.getCurrentOperation(deviceId) ?? null;
+    return { ok: true, operation: op };
+  } catch (e: any) {
+    return { ok: false, error: String(e?.message || e) };
+  }
 });

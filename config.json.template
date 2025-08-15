@@ -12,5 +12,6 @@
         "th" : "สามย่าน" 
     },
     "stationId" : "13",
-    "heartbeatPort" : 3070
+    "heartbeatPort" : 3070,
+    "deviceProbePort": 2222
 }
