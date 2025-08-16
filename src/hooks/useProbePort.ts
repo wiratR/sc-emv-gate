@@ -1,3 +1,5 @@
+// src/hooks/useProbePort.ts
+
 import { useEffect, useState } from "react";
 
 export default function useProbePort(defaultPort = 22) {
@@ -8,22 +10,15 @@ export default function useProbePort(defaultPort = 22) {
     (async () => {
       try {
         const res = await window.api?.getConfig?.();
-        const port = res?.ok ? res.config.deviceProbePort ?? 22 : 22;
-        if (mounted && res?.ok) {
-          setPort(res.config.deviceProbePort ?? defaultPort);
-        }
-      } catch {}
+        const p = Number(res?.config?.deviceProbePort);
+        if (mounted && p) setPort(p);
+      } catch (e) {
+        // เงียบไว้ ใช้ค่า default ไปก่อน
+        window.logger?.debug?.("[probePort] read config failed", String(e));
+      }
     })();
-
-    // ถ้าระบบคุณ broadcast การเปลี่ยน config
-    const off = window.config?.onChanged?.((cfg) => {
-      setPort(cfg.deviceProbePort ?? defaultPort);
-    });
-    return () => {
-      mounted = false;
-      off && off();
-    };
-  }, [defaultPort]);
+    return () => { mounted = false; };
+  }, []);
 
   return port;
 }

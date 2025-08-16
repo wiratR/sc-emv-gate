@@ -77,13 +77,12 @@ export default function DeviceCard({
         <div className={labelCls}>{t("device_ip")}</div>
         <div className="text-gray-900">
           {device.deviceIp ?? "-"}
-          {probe && "reachable" in probe && (
+          {probe?.ok && (
             <span className="ml-2 text-xs text-gray-500">
-              • {probe.reachable ? `${probe.rttMs}ms` : "unreachable"}
+              • {probe.reachable ? `${probe.rttMs}ms` : "unreachable"} (:{probePort})
             </span>
           )}
         </div>
-
         <div className={labelCls}>{t("device_heartbeat")}</div>
         <div className="text-gray-900">
           {hb?.agoText ?? device.lastHeartbeat ?? "-"}

@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 
 import { loadConfig } from "./config";
-import { isOperation, type Operation } from "./models/operations";
+import { isOperation, type Operation } from "./models/operations"
 
 /** โครง HB ที่อุปกรณ์ส่งมา */
 type HB = {

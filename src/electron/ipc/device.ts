@@ -274,3 +274,14 @@ ipcMain.handle("devices:get-current-operation", async (_e, deviceId: string): Pr
     return { ok: false, error: String(e?.message || e) };
   }
 });
+
+ipcMain.handle("devices:set-current-operation", async (_e, payload: { deviceId?: string; operation?: Operation }) => {
+  const id = String(payload?.deviceId || "").trim();
+  const op = payload?.operation;
+  if (!id) return { ok: false, error: "missing deviceId" };
+  if (!op) return { ok: false, error: "missing operation" };
+  const hb = getHeartbeatServer();
+  if (!hb) return { ok: false, error: "heartbeat server is not running" };
+  hb.setCurrentOperation(id, op);
+  return { ok: true };
+});

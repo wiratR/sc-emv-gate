@@ -56,6 +56,8 @@ contextBridge.exposeInMainWorld("devices", {
       | { ok: true; operation: Operation | null }
       | { ok: false; error: string }
     >,
+  setCurrentOperation: (payload: { deviceId: string; operation: string }) =>
+    ipcRenderer.invoke("devices:set-current-operation", payload),
 });
 
 contextBridge.exposeInMainWorld("terminal", {

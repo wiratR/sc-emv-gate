@@ -38,3 +38,7 @@ export const OP_GROUP: Record<Operation, "inservice" | "maintenance" | "shutdown
   station_close:    "shutdown",
   emergency:        "emergency",
 };
+
+// default ถ้าไม่มีค่าเดิม
+export const DEFAULT_OPERATION: Operation = "inservice_bidir";
+
