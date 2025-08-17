@@ -14,6 +14,7 @@ type Operation =
 /** App configuration shape (loaded from config.json) */
 interface AppConfig {
   environment?: "development" | "production";
+  logLevel?: string;
   heartbeatPort?: number;
   deviceCommunicationPath?: string;
   stationName?: string;
@@ -61,7 +62,8 @@ declare global {
 
       // ── Config
       getConfig: () => Promise<GetConfigResult>;
-      updateConfig: (partial: Partial<AppConfig>) => Promise<UpdateConfigResult>;
+      //updateConfig: (partial: Partial<AppConfig>) => Promise<UpdateConfigResult>;
+      updateConfig: (p: any) => Promise<UpdateConfigResult>;
 
       // ── Logs
       getLogInfo: () => Promise<{ ok: boolean; minLevel: string; logFile: string; logDir: string }>;

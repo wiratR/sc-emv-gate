@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Device } from "@/models/device";
 import Modal from "@/components/Modal";
+import { Operation } from "@/models/operation";
 import StatusModal from "@/components/StatusModal";
 import StatusPill from "@/components/StatusPill";
 import TerminalModal from "@/components/TerminalModal";
@@ -12,14 +13,6 @@ import { useAuth } from "@/auth/AuthContext";
 import useEffectiveStatus from "@/hooks/useEffectiveStatus";
 import { useI18n } from "@/i18n/I18nProvider";
 import useProbePort from "@/hooks/useProbePort";
-
-type Operation =
-  | "inservice_entry"
-  | "inservice_exit"
-  | "inservice_bidirect"
-  | "out_of_service"
-  | "station_close"
-  | "emergency";
 
 const ALL_OPS: Operation[] = [
   "inservice_entry",

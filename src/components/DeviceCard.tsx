@@ -2,20 +2,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Device } from "@/models/device";
+import { Operation } from "@/models/operation";
 import { sideLabel } from "@/utils/side";
 import { statusClass } from "@/utils/status";
 import useEffectiveStatus from "@/hooks/useEffectiveStatus";
 import { useI18n } from "@/i18n/I18nProvider";
 import useProbePort from "@/hooks/useProbePort";
-
-/** Operation values agreed with main/heartbeatServer */
-type Operation =
-  | "inservice_entry"
-  | "inservice_exit"
-  | "inservice_bidirect"
-  | "out_of_service"
-  | "station_close"
-  | "emergency";
 
 type Props = {
   device: Device;

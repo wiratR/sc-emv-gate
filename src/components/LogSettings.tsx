@@ -18,6 +18,19 @@ type ModalState = {
   onConfirm?: () => void | Promise<void>;
 };
 
+function clampPort(n: number) {
+  if (!Number.isFinite(n)) return NaN;
+  if (n < 1 || n > 65535) return NaN;
+  return Math.floor(n);
+}
+
+function isStationNameObj(
+  v: unknown
+): v is { th?: string; en?: string } {
+  return !!v && typeof v === "object";
+}
+
+
 export default function LogSettings() {
   const { t } = useI18n();
 
@@ -27,12 +40,15 @@ export default function LogSettings() {
   const [logFile, setLogFile] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // ── Station / Display ───────────────────────────────────────
+  // ── Station / Display / Ports ───────────────────────────────
   const [stationNameTh, setStationNameTh] = useState("");
   const [stationNameEn, setStationNameEn] = useState("");
   const [stationId, setStationId] = useState("");
   const [stationIp, setStationIp] = useState("");
   const [fullScreen, setFullScreen] = useState<boolean>(false);
+
+  const [heartbeatPort, setHeartbeatPort] = useState<number | "">("");
+  const [deviceProbePort, setDeviceProbePort] = useState<number | "">("");
 
   // ── Modal ───────────────────────────────────────────────────
   const [m, setM] = useState<ModalState>({
@@ -50,19 +66,36 @@ export default function LogSettings() {
       if (cfg?.ok) {
         setLevel((cfg.config.logLevel || "info") as Level);
 
-        // stationName รองรับทั้ง string และ object
-        const sn: StationName = cfg.config.stationName ?? "";
-        if (typeof sn === "string") {
-          setStationNameTh(sn);
-          setStationNameEn(sn);
+        // ✅ robust: รองรับทั้ง string / object / nullish
+        const raw = cfg.config.stationName as unknown;
+
+        if (typeof raw === "string") {
+          setStationNameTh(raw);
+          setStationNameEn(raw);
+        } else if (isStationNameObj(raw)) {
+          const obj = raw as { th?: string; en?: string };
+          setStationNameTh(typeof obj.th === "string" ? obj.th : "");
+          setStationNameEn(typeof obj.en === "string" ? obj.en : "");
         } else {
-          setStationNameTh(sn.th ?? "");
-          setStationNameEn(sn.en ?? "");
+          setStationNameTh("");
+          setStationNameEn("");
         }
 
         setStationId(cfg.config.stationId ?? "");
         setStationIp(cfg.config.stationIp ?? "");
         setFullScreen(!!cfg.config.fullScreen);
+
+        // ค่าเริ่มต้นหากไม่มีในไฟล์
+        setHeartbeatPort(
+          Number.isFinite(Number(cfg.config.heartbeatPort))
+            ? Number(cfg.config.heartbeatPort)
+            : 3070
+        );
+        setDeviceProbePort(
+          Number.isFinite(Number(cfg.config.deviceProbePort))
+            ? Number(cfg.config.deviceProbePort)
+            : 22
+        );
       }
 
       if (info?.ok) {
@@ -73,6 +106,20 @@ export default function LogSettings() {
   }, []);
 
   const doSave = async () => {
+    // validate ports
+    const hb = clampPort(Number(heartbeatPort));
+    const dp = clampPort(Number(deviceProbePort));
+
+    if (!Number.isFinite(hb) || !Number.isFinite(dp)) {
+      setM({
+        open: true,
+        variant: "error",
+        title: t("error") as string,
+        message: (t("invalid_port") as string) || "Invalid port(s). Ports must be 1–65535.",
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -80,7 +127,9 @@ export default function LogSettings() {
         stationName: { th: stationNameTh || "", en: stationNameEn || "" },
         stationId: stationId || "",
         stationIp: stationIp || "",
-        fullScreen: fullScreen,
+        fullScreen: !!fullScreen,
+        heartbeatPort: hb,
+        deviceProbePort: dp,
       };
       const res = await window.api?.updateConfig(payload);
       if (!res?.ok) {
@@ -88,7 +137,7 @@ export default function LogSettings() {
           open: true,
           variant: "error",
           title: t("error") as string,
-          message: res?.error || (t("save") as string) + " failed",
+          message: res?.error || ((t("save") as string) + " failed"),
         });
         return;
       }
@@ -114,7 +163,9 @@ export default function LogSettings() {
       title: t("confirm") as string,
       message:
         `${t("save")} ? ` +
-        `(${t("fullscreen")} = ${fsText}). ` +
+        `(${t("fullscreen")} = ${fsText}, ` +
+        `HB:${heartbeatPort || "-"}, ` +
+        `Probe:${deviceProbePort || "-"}) ` +
         `${t("will_apply_next_launch")}.`,
       onConfirm: async () => {
         setM((x) => ({ ...x, open: false }));
@@ -215,6 +266,41 @@ export default function LogSettings() {
               value={stationIp}
               onChange={(e) => setStationIp(e.target.value)}
               placeholder="192.168.1.100"
+              inputMode="numeric"
+            />
+          </label>
+        </div>
+
+        {/* Heartbeat / Probe Ports */}
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="text-sm">
+            <span className="text-gray-600">{t("heartbeat_port")}</span>
+            <input
+              className="mt-1 w-full border rounded-lg px-3 py-2"
+              type="number"
+              min={1}
+              max={65535}
+              value={heartbeatPort}
+              onChange={(e) =>
+                setHeartbeatPort(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              placeholder="3070"
+              inputMode="numeric"
+            />
+          </label>
+
+          <label className="text-sm">
+            <span className="text-gray-600">{t("device_probe_port")}</span>
+            <input
+              className="mt-1 w-full border rounded-lg px-3 py-2"
+              type="number"
+              min={1}
+              max={65535}
+              value={deviceProbePort}
+              onChange={(e) =>
+                setDeviceProbePort(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              placeholder="22 / 2222"
               inputMode="numeric"
             />
           </label>

@@ -60,6 +60,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     save: "บันทึก",
     saving: "กำลังบันทึก...",
     open_logs_folder: "เปิดโฟลเดอร์ Log",
+    heartbeat_port: "พอร์ต Heartbeat",
+    device_probe_port: "พอร์ตตรวจสอบอุปกรณ์",
+    invalid_port: "พอร์ตไม่ถูกต้อง (ต้องเป็น 1-65535)",
 
     // Modal: Gate control
     gate_operation_title: "ควบคุมเกท",
@@ -186,6 +189,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     save: "Save",
     saving: "Saving...",
     open_logs_folder: "Open Logs Folder",
+    heartbeat_port: "Heartbeat Port",
+    device_probe_port: "Device Probe Port",
+    invalid_port: "Invalid port(s). Ports must be 1-65535.",
 
     // Modal: Gate control
     gate_operation_title: "Gate Operation",
