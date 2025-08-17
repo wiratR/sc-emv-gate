@@ -28,12 +28,15 @@ export default function DeviceCard({ device, onClick }: Props) {
     staleMs: 60_000,
     offlineMs: 300_000,
   });
+  // const isOnline = status === "online"; // ← ใช้ effective status
+  const isOnline = device.status === "online";
 
-  // ── Current Operation (poll every 10s) ────────────────────────
+  // ── Current Operation (poll ทุก 10s เฉพาะตอน online) ────────
   const [op, setOp] = useState<Operation | null>(null);
   const [opLoading, setOpLoading] = useState(false);
 
   const fetchOperation = useCallback(async () => {
+    if (!isOnline) return; // ไม่ online ไม่ต้องดึง
     if (!device?.id || !window.devices?.getCurrentOperation) return;
     try {
       setOpLoading(true);
@@ -44,17 +47,25 @@ export default function DeviceCard({ device, onClick }: Props) {
     } finally {
       setOpLoading(false);
     }
-  }, [device?.id]);
+  }, [device?.id, isOnline]);
 
   useEffect(() => {
     let alive = true;
+
+    // ถ้าไม่ online ให้ล้างค่า op และไม่ตั้ง interval
+    if (!isOnline) {
+      setOp(null);
+      setOpLoading(false);
+      return () => { alive = false; };
+    }
+
     (async () => alive && (await fetchOperation()))();
     const itv = setInterval(() => alive && fetchOperation(), 10_000);
     return () => {
       alive = false;
       clearInterval(itv);
     };
-  }, [fetchOperation]);
+  }, [fetchOperation, isOnline]);
 
   // ── Derived UI helpers ────────────────────────────────────────
   const statusText = useMemo(
@@ -64,27 +75,28 @@ export default function DeviceCard({ device, onClick }: Props) {
 
   const opLabel = useMemo((): string => {
     switch (op) {
-      case "inservice_entry":   return (t("op_inservice_entry") as string) || "Inservice – Entry";
-      case "inservice_exit":    return (t("op_inservice_exit") as string) || "Inservice – Exit";
-      case "inservice_bidirect":return (t("op_inservice_bi") as string)   || "Inservice – Bi-direction";
-      case "out_of_service":    return (t("op_out_of_service") as string) || "Out of service";
-      case "station_close":     return (t("op_station_close") as string)  || "Station close";
-      case "emergency":         return (t("op_emergency") as string)      || "Emergency";
-      default:                  return (t("operation") as string)          || "Operation";
+      case "inservice_entry":    return (t("op_inservice_entry") as string) || "Inservice – Entry";
+      case "inservice_exit":     return (t("op_inservice_exit") as string) || "Inservice – Exit";
+      case "inservice_bidirect": return (t("op_inservice_bi") as string)   || "Inservice – Bi-direction";
+      case "out_of_service":     return (t("op_out_of_service") as string) || "Out of service";
+      case "station_close":      return (t("op_station_close") as string)  || "Station close";
+      case "emergency":          return (t("op_emergency") as string)      || "Emergency";
+      default:                   return (t("operation") as string)          || "Operation";
     }
   }, [op, t]);
 
+  // สีของ Operation pill
   const opPillClass = useMemo(() => {
+    if (!isOnline) return "bg-gray-100 text-gray-500 border-gray-200"; // ← ไม่ online = เทา + “—”
     if (!op) return "bg-gray-100 text-gray-700 border-gray-200";
     if (op.startsWith("inservice_"))
       return "bg-green-100 text-green-800 border-green-200";
     if (op === "out_of_service" || op === "station_close")
       return "bg-red-100 text-red-800 border-red-200";
     if (op === "emergency")
-      // soft glow + gentle scale (defined in global CSS as .emergency-anim)
       return "text-amber-900 border-amber-300 emergency-anim ring-2 ring-amber-400/50";
     return "bg-gray-100 text-gray-700 border-gray-200";
-  }, [op]);
+  }, [op, isOnline]);
 
   const probeTip = useMemo(() => {
     if (probe && "reachable" in probe)
@@ -94,10 +106,10 @@ export default function DeviceCard({ device, onClick }: Props) {
 
   const cardTitle = useMemo(
     () =>
-      [device.name, op ? `• ${opLabel}` : "", `• ${statusText}`]
+      [device.name, isOnline && op ? `• ${opLabel}` : "", `• ${statusText}`]
         .filter(Boolean)
         .join(" "),
-    [device.name, op, opLabel, statusText]
+    [device.name, isOnline, op, opLabel, statusText]
   );
 
   // ── Small UI atoms ────────────────────────────────────────────
@@ -121,11 +133,18 @@ export default function DeviceCard({ device, onClick }: Props) {
   const OperationPill = (
     <span
       className={`inline-flex items-center text-[11px] border px-2 py-0.5 rounded-full ${opPillClass}`}
-      title={op ?? "—"}
-      aria-busy={opLoading || undefined}
+      title={isOnline ? (op ?? "—") : "—"}
+      aria-busy={isOnline && opLoading || undefined}
       aria-live="polite"
     >
-      {opLoading ? (t("loading") as string) || "Loading..." : op ? opLabel : "—"}
+      {/* ไม่ online → แสดง “—” เสมอ */}
+      {!isOnline
+        ? "—"
+        : opLoading
+          ? (t("loading") as string) || "Loading..."
+          : op
+            ? opLabel
+            : "—"}
     </span>
   );
 

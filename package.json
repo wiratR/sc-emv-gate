@@ -33,7 +33,13 @@
     "mock:op:set:oos": "node scripts/mock-op.mjs set G1-01 out_of_service",
     "mock:op:set:close": "node scripts/mock-op.mjs set G1-01 station_close",
     "mock:op:set:emg": "node scripts/mock-op.mjs set G1-01 emergency",
-    "mock:op:get": "node scripts/mock-op.mjs get G1-01"
+    "mock:op:get": "node scripts/mock-op.mjs get G1-01",
+    "mock:hb:online": "cross-env MOCK_DEVICE_STATUS=online node scripts/mock-hb.mjs",
+    "mock:hb:maint": "cross-env MOCK_DEVICE_STATUS=maintenance node scripts/mock-hb.mjs",
+    "mock:hb:fault": "cross-env MOCK_DEVICE_STATUS=fault node scripts/mock-hb.mjs",
+    "mock:hb:seq": "cross-env MOCK_HB_STATUS_SEQ=online,maintenance,online,fault node scripts/mock-hb.mjs",
+    "mock:hb:random": "cross-env MOCK_HB_STATUS_SEQ=online,maintenance,fault MOCK_HB_RANDOM=1 node scripts/mock-hb.mjs",
+    "mock:hb:custom": "cross-env MOCK_HB_HOST=127.0.0.1 MOCK_HB_PORT=3070 MOCK_DEVICE_ID=G1-01 MOCK_DEVICE_IP=127.0.0.1 node scripts/mock-hb.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
