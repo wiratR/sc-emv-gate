@@ -1,3 +1,49 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* --- Emergency pill animation (soft glow + subtle scale) --- */
+.emergency-anim {
+    /* amber-500 in RGB (Tailwind ~ #F59E0B) */
+    --emg: 245, 158, 11;
+    animation:
+        emergency-bg 1.2s ease-in-out infinite,
+        emergency-glow 1.2s ease-in-out infinite;
+    will-change: transform, box-shadow, background-color;
+}
+
+@keyframes emergency-bg {
+
+    0%,
+    100% {
+        background-color: #FEF3C7;
+    }
+
+    /* amber-100 */
+    50% {
+        background-color: #FDE68A;
+    }
+
+    /* amber-200 */
+}
+
+@keyframes emergency-glow {
+
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(var(--emg), 0);
+    }
+
+    50% {
+        transform: scale(1.03);
+        box-shadow: 0 0 0 6px rgba(var(--emg), 0.35);
+    }
+}
+
+/* ลด motion หากผู้ใช้ตั้งค่าระบบไว้ */
+@media (prefers-reduced-motion: reduce) {
+    .emergency-anim {
+        animation: none;
+    }
+}
