@@ -84,6 +84,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     reboot_failed: "สั่งรีบูทไม่สำเร็จ",
     operation_blocked: "อุปกรณ์ไม่พร้อม จึงไม่สามารถสั่งงานได้",
     last_seen: "เห็นล่าสุด",
+    send_command: "ส่งคำสั่ง",
+    operation_requires_online: "คำสั่งนี้ต้องใช้งานเมื่ออุปกรณ์อยู่ในสถานะออนไลน์เท่านั้น",
+    device : "อุปกรณ์",
+    confirm_operation: "ยืนยันดำเนินการนี้หรือไม่?",
 
     // Maintenance tools / Terminal
     maintenance_tools: "เครื่องมือบำรุงรักษา",
@@ -213,6 +217,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     reboot_failed: "Reboot failed",
     operation_blocked: "Operation blocked: device not ready",
     last_seen: "Last seen",
+    send_command: "Send command",
+    operation_requires_online: "Operation requires device to be online.",
+    device : "Device",
+    confirm_operation: "Confirm this operation?",
 
     // Maintenance tools / Terminal
     maintenance_tools: "Maintenance Tools",

@@ -1,8 +1,9 @@
 // src/components/DeviceControlModal.tsx
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Device } from "@/models/device";
+import Dialog from "@/components/Dialog";
 import Modal from "@/components/Modal";
 import { Operation } from "@/models/operation";
 import StatusModal from "@/components/StatusModal";
@@ -54,13 +55,17 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
   const [loadingLog, setLoadingLog] = useState(false);
 
   const [m, setM] = useState<ModalState>({ open: false, variant: "info", title: "", message: "" });
-  const probePort = useProbePort(22); // default 22; จะ override ด้วย config
+
+  // ✅ ยืนยันก่อนส่งคำสั่ง
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const probePort = useProbePort(22); // default 22; override ด้วย config
 
   // ใช้ hook (รองรับ device=null ได้)
   const { status, hb, probe, refreshNow } = useEffectiveStatus(device ?? undefined, {
     label: device ? `modal:${device.id}:${device.gateId ?? device.name}` : "modal:-",
     refreshMs: open ? 6000 : 0,
-    tcpPort: probePort,          // เปลี่ยนค่าได้ตาม config ถ้าต้องการ
+    tcpPort: probePort,
     timeoutMs: 1200,
     staleMs: 60_000,
     offlineMs: 300_000,
@@ -84,10 +89,21 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
         window.logger?.warn?.("[modal] getCurrentOperation failed", { deviceId: device?.id, error: String(e) });
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [open, device?.id]);
+
+  // map op → label
+  const opLabel = useMemo((): string => {
+    switch (op) {
+      case "inservice_entry":    return (t("op_inservice_entry") as string) || "Inservice – Entry";
+      case "inservice_exit":     return (t("op_inservice_exit") as string) || "Inservice – Exit";
+      case "inservice_bidirect": return (t("op_inservice_bi") as string)   || "Inservice – Bi-direction";
+      case "out_of_service":     return (t("op_out_of_service") as string) || "Out of service";
+      case "station_close":      return (t("op_station_close") as string)  || "Station close";
+      case "emergency":          return (t("op_emergency") as string)      || "Emergency";
+      default:                   return (t("operation") as string)          || "Operation";
+    }
+  }, [op, t]);
 
   // ─────────────── Reboot ───────────────
   const doReboot = async () => {
@@ -264,40 +280,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
           </label>
         </fieldset>
 
-        {/* Maintenance tools */}
-        {isMaint && (
-          <fieldset className="mt-4 rounded-xl border p-3">
-            <legend className="px-2 text-sm font-semibold">{t("maintenance_tools")}</legend>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <button
-                onClick={askReboot}
-                disabled={busy}
-                className="px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60"
-              >
-                {t("reboot_gate")}
-              </button>
-
-              {status === "online" && device.deviceIp && (
-                <button onClick={() => setShowTerm(true)} className="px-4 py-2 rounded-lg border hover:bg-gray-50">
-                  {t("open_console")}
-                </button>
-              )}
-
-              {status === "online" && device.deviceIp && (
-                <button
-                  onClick={handleGetDeviceLog}
-                  disabled={loadingLog || !device.deviceIp}
-                  className="px-4 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60"
-                >
-                  {loadingLog ? (t("getting_logs") as string) : (t("get_device_log") as string)}
-                </button>
-              )}
-            </div>
-            <div className="mt-2 text-xs text-gray-400">{t("console_hint")}</div>
-          </fieldset>
-        )}
-
-        {/* ▶️ Action Row (แทน footer) */}
+        {/* ▶️ Action Row */}
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border hover:bg-gray-50">
             {t("cancel")}
@@ -314,9 +297,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
                 });
                 return;
               }
-              window.logger?.info?.("[device] gate op submit", { deviceId: device.id, op });
-              onEnter?.(device, op);
-              onClose();
+              setConfirmOpen(true); // ✅ เปิด dialog ยืนยันก่อนส่ง
             }}
             disabled={!canControl}
             className={`px-4 py-2 rounded-lg text-white ${
@@ -328,10 +309,15 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
         </div>
 
         {/* Terminal Modal */}
-        <TerminalModal open={showTerm} sshHost={device.deviceIp} title={`SSH – ${device.name}`} onClose={() => setShowTerm(false)} />
+        <TerminalModal
+          open={showTerm}
+          sshHost={device.deviceIp}
+          title={`SSH – ${device.name}`}
+          onClose={() => setShowTerm(false)}
+        />
       </Modal>
 
-      {/* Status Modal */}
+      {/* Status Modal (info/success/error/confirm เฉพาะ use case อื่น ๆ) */}
       <StatusModal
         open={m.open}
         variant={m.variant}
@@ -342,6 +328,61 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
         confirmText={(t("confirm") as string) || "Confirm"}
         cancelText={(t("cancel") as string) || "Cancel"}
       />
+
+      {/* ✅ Confirm Dialog เมื่อกด Enter */}
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title={
+          <span>
+            {(t("confirm_operation") as string) || "Confirm operation"}
+          </span>
+        }
+        size="sm"
+        footer={
+          <>
+            <button
+              onClick={() => setConfirmOpen(false)}
+              className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              onClick={() => {
+                // ส่งคำสั่งจริง
+                window.logger?.info?.("[device] gate op submit (confirmed)", {
+                  deviceId: device.id,
+                  op,
+                });
+                onEnter?.(device, op);
+                setConfirmOpen(false);
+                onClose();
+              }}
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+            >
+              {(t("confirm") as string) || "Confirm"}
+            </button>
+          </>
+        }
+      >
+        <div className="text-sm text-gray-700 space-y-1">
+          <div>
+            {(t("send_command") as string) || "Send command"}:{" "}
+            <span className="font-semibold">{opLabel}</span>
+          </div>
+          <div>
+            {(t("device") as string) || "Device"}:{" "}
+            <span className="font-semibold">
+              {device.name} ({device.id})
+            </span>
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {(t("note") as string) || "Note"}:{" "}
+            {(t("operation_requires_online") as string) ||
+              "Operation requires device to be online."}
+          </div>
+        </div>
+      </Dialog>
     </>
   );
 }
