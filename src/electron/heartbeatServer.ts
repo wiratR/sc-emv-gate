@@ -135,6 +135,22 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
     const { pathname } = parseUrl(req, port);
 
     try {
+
+      // ✅ NEW: Time sync
+      if (req.method === "GET" && (req.url === "/time" || req.url === "/sync-time")) {
+        const now = new Date();
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+        const offsetMinutes = -now.getTimezoneOffset(); // บวก = ล้ำหน้า UTC
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        return okJson(res, {
+          ok: true,
+          nowUtc: now.toISOString(),     // 2025-08-15T14:56:34.123Z
+          epochMs: now.getTime(),        // 1723727794123
+          tz,                            // เช่น "Asia/Bangkok"
+          offsetMinutes                  // เช่น 420
+        });
+      }
+      
       // GET /hb → คืนทั้งหมด
       if (req.method === "GET" && pathname === "/hb") {
         return okJson(res, { ok: true, devices: readStore() });
