@@ -5,6 +5,7 @@ import { BrowserWindow, app, ipcMain } from "electron";
 import type { Operation } from "../models/operations";
 import fs from "fs";
 import { getHeartbeatServer } from "../main-hb-ref"; // ดูข้อถัดไป
+import { isOperation } from "../models/operations";
 import os from "os";
 import path from "path";
 import { probeTcp } from "./devices/probe";
@@ -275,13 +276,27 @@ ipcMain.handle("devices:get-current-operation", async (_e, deviceId: string): Pr
   }
 });
 
-ipcMain.handle("devices:set-current-operation", async (_e, payload: { deviceId?: string; operation?: Operation }) => {
-  const id = String(payload?.deviceId || "").trim();
-  const op = payload?.operation;
-  if (!id) return { ok: false, error: "missing deviceId" };
-  if (!op) return { ok: false, error: "missing operation" };
-  const hb = getHeartbeatServer();
-  if (!hb) return { ok: false, error: "heartbeat server is not running" };
-  hb.setCurrentOperation(id, op);
-  return { ok: true };
-});
+ipcMain.handle(
+  "devices:set-operation",
+  async (_e, payload: any): Promise<{ ok: true } | { ok: false; error: string }> => {
+    // 🔎 debug payload ที่เข้ามา
+    try { console.log("[devices] set-operation payload:", payload); } catch {}
+
+    // รองรับทั้ง {deviceId,...} / {id,...} / { op: ... } / { operation: ... }
+    const id = String(payload?.deviceId ?? payload?.id ?? "").trim();
+    const op = String(payload?.operation ?? payload?.op ?? "");
+
+    if (!id) return { ok: false, error: "missing deviceId" };
+    if (!isOperation(op)) return { ok: false, error: `invalid operation: "${op}"` };
+
+    const hb = getHeartbeatServer();
+    if (!hb) return { ok: false, error: "heartbeat server is not running" };
+
+    try {
+      hb.setCurrentOperation(id, op as Operation);
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, error: String(e?.message || e) };
+    }
+  }
+);

@@ -112,9 +112,10 @@ declare global {
       getCurrentOperation?: (
         deviceId: string
       ) => Promise<{ ok: true; operation: Operation | null } | { ok: false; error: string }>;
-      setCurrentOperation?: (p: { deviceId: string; operation: Operation }) => Promise<
-        { ok: true } | { ok: false; error: string }
-      >;
+      setOperation?: (
+        deviceId: string,
+        operation: Operation
+      ) => Promise<{ ok: true } | { ok: false; error: string }>;
     };
 
     /** Terminal/xterm bridge – global callback style */

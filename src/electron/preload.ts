@@ -56,8 +56,15 @@ contextBridge.exposeInMainWorld("devices", {
       | { ok: true; operation: Operation | null }
       | { ok: false; error: string }
     >,
-  setCurrentOperation: (payload: { deviceId: string; operation: string }) =>
-    ipcRenderer.invoke("devices:set-current-operation", payload),
+  setOperation: (...args: any[]) => {
+    // รองรับ setOperation("G1-01","emergency") หรือ setOperation({deviceId:"G1-01",operation:"emergency"})
+    const payload =
+      typeof args[0] === "string"
+        ? { deviceId: args[0], operation: args[1] }
+        : (args[0] ?? {});
+    try { console.log("[preload] setOperation ->", payload); } catch {}
+    return ipcRenderer.invoke("devices:set-operation", payload);
+  },
 });
 
 contextBridge.exposeInMainWorld("terminal", {

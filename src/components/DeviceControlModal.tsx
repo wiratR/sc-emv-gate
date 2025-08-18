@@ -95,9 +95,9 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
   // map op → label
   const opLabel = useMemo((): string => {
     switch (op) {
-      case "inservice_entry":    return (t("op_inservice_entry") as string) || "Inservice – Entry";
-      case "inservice_exit":     return (t("op_inservice_exit") as string) || "Inservice – Exit";
-      case "inservice_bidirect": return (t("op_inservice_bi") as string)   || "Inservice – Bi-direction";
+      case "inservice_entry":    return (t("op_inservice_entry") as string) || "Inservice - Entry";
+      case "inservice_exit":     return (t("op_inservice_exit") as string) || "Inservice - Exit";
+      case "inservice_bidirect": return (t("op_inservice_bi") as string)   || "Inservice - Bi-direction";
       case "out_of_service":     return (t("op_out_of_service") as string) || "Out of service";
       case "station_close":      return (t("op_station_close") as string)  || "Station close";
       case "emergency":          return (t("op_emergency") as string)      || "Emergency";
@@ -348,19 +348,22 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
               {t("cancel")}
             </button>
             <button
-              onClick={() => {
-                // ส่งคำสั่งจริง
-                window.logger?.info?.("[device] gate op submit (confirmed)", {
-                  deviceId: device.id,
-                  op,
-                });
-                onEnter?.(device, op);
+              onClick={async () => {
+                if (!device) return;
+                window.logger?.info?.("[modal] setOperation =>", { deviceId: device.id, op });
+                const res = await window.devices?.setOperation?.(device.id, op);
+                if (!res?.ok) {
+                  setM({ open: true, variant: "error", title: t("error") as string, message: res?.error || "Send failed" });
+                  setConfirmOpen(false);
+                  return;
+                }
+                setM({ open: true, variant: "success", title: t("success") as string, message: `${t("send_command") || "Send command"}:  ${opLabel}` });
                 setConfirmOpen(false);
                 onClose();
               }}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
             >
-              {(t("confirm") as string) || "Confirm"}
+              {t("confirm") || "Confirm"}
             </button>
           </>
         }
