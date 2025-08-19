@@ -33,6 +33,12 @@ let filePath = "";
 let cache: Device[] = [];
 let watching = false;
 
+type AisleMode = 0 | 1 | 2 | 3;
+const isAisleMode = (x: any): x is AisleMode => {
+  const n = Number(x);
+  return Number.isInteger(n) && n >= 0 && n <= 3;
+};
+
 // ───────────────────────────────── helpers ─────────────────────────────────
 
 function ensureDirExists(p: string) {
@@ -300,3 +306,23 @@ ipcMain.handle(
     }
   }
 );
+
+ipcMain.handle("devices:get-aisle-mode", async (_e, deviceId: string) => {
+  if (!deviceId) return { ok: false, error: "missing deviceId" as const };
+  const hb = getHeartbeatServer();
+  if (!hb) return { ok: false, error: "heartbeat server is not running" as const };
+  const mode = hb.getAisleMode(deviceId) ?? null;
+  return { ok: true as const, aisleMode: mode };
+});
+
+ipcMain.handle("devices:set-aisle-mode", async (_e, payload: { deviceId?: string; aisleMode?: number }) => {
+  const id = String(payload?.deviceId || "").trim();
+  const m = payload?.aisleMode;
+  if (!id) return { ok: false as const, error: "missing deviceId" };
+  if (!isAisleMode(m)) return { ok: false as const, error: "invalid aisleMode (0..3)" };
+
+  const hb = getHeartbeatServer();
+  if (!hb) return { ok: false as const, error: "heartbeat server is not running" };
+  hb.setAisleMode(id, m);
+  return { ok: true as const };
+});

@@ -1,5 +1,4 @@
 // src/components/DeviceControlModal.tsx
-
 import { useEffect, useMemo, useState } from "react";
 
 import { Device } from "@/models/device";
@@ -32,7 +31,7 @@ type Props = {
   open: boolean;
   device: Device | null;
   onClose: () => void;
-  onEnter?: (d: Device, op: Operation) => void;
+  onEnter?: (d: Device, op: Operation) => void; // (ยังคงรองรับ callback เดิมไว้)
 };
 
 type Variant = "info" | "success" | "error" | "confirm";
@@ -44,24 +43,38 @@ type ModalState = {
   onConfirm?: () => void | Promise<void>;
 };
 
+type AisleMode = 0 | 1 | 2 | 3;
+
 export default function DeviceControlModal({ open, device, onClose, onEnter }: Props) {
   const { user } = useAuth();
   const { t } = useI18n();
-  const isMaint = user?.role === "maintenance";
 
+  // ให้ admin เห็น Maintenance tools ด้วย
+  const role = user?.role ?? "admin";
+  const canSeeMaintTools = role === "maintenance" || role === "admin";
+
+  // ── Local states ─────────────────────────────────────────────
   const [showTerm, setShowTerm] = useState(false);
+
+  // Operation
   const [op, setOp] = useState<Operation>("inservice_bidirect");
+  const [confirmOpOpen, setConfirmOpOpen] = useState(false);
+
+  // Aisle Mode
+  const [aisleMode, setAisleMode] = useState<AisleMode>(0);
+  const [confirmAisleOpen, setConfirmAisleOpen] = useState(false);
+
+  // Maintenance helpers
   const [busy, setBusy] = useState(false);
   const [loadingLog, setLoadingLog] = useState(false);
 
+  // Status modal (info/success/error)
   const [m, setM] = useState<ModalState>({ open: false, variant: "info", title: "", message: "" });
 
-  // ✅ ยืนยันก่อนส่งคำสั่ง
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  // อ่าน probe-port จาก config
+  const probePort = useProbePort(22);
 
-  const probePort = useProbePort(22); // default 22; override ด้วย config
-
-  // ใช้ hook (รองรับ device=null ได้)
+  // ใช้ effective status (รองรับ device=null ได้)
   const { status, hb, probe, refreshNow } = useEffectiveStatus(device ?? undefined, {
     label: device ? `modal:${device.id}:${device.gateId ?? device.name}` : "modal:-",
     refreshMs: open ? 6000 : 0,
@@ -73,7 +86,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
 
   const canControl = isControllable(status);
 
-  // โหลด operation ปัจจุบันเมื่อเปิดโมดัล (และมี device)
+  // ── load current operation เมื่อเปิด ────────────────────────
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -82,9 +95,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
         const res = await window.devices?.getCurrentOperation?.(device.id);
         const current = (res as any)?.operation as string | null | undefined;
         window.logger?.info?.("[modal] getCurrentOperation", { deviceId: device.id, op: current ?? null });
-        if (!cancelled && current && isOperation(current)) {
-          setOp(current);
-        }
+        if (!cancelled && current && isOperation(current)) setOp(current);
       } catch (e) {
         window.logger?.warn?.("[modal] getCurrentOperation failed", { deviceId: device?.id, error: String(e) });
       }
@@ -92,7 +103,18 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
     return () => { cancelled = true; };
   }, [open, device?.id]);
 
-  // map op → label
+  // ── load current aisle-mode เมื่อเปิด ───────────────────────
+  useEffect(() => {
+    let off = false;
+    (async () => {
+      if (!open || !device?.id) return;
+      const r = await window.devices?.getAisleMode?.(device.id);
+      if (!off && r?.ok) setAisleMode((r.aisleMode ?? 0) as AisleMode);
+    })();
+    return () => { off = true; };
+  }, [open, device?.id]);
+
+  // ── Labels ──────────────────────────────────────────────────
   const opLabel = useMemo((): string => {
     switch (op) {
       case "inservice_entry":    return (t("op_inservice_entry") as string) || "Inservice - Entry";
@@ -105,7 +127,17 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
     }
   }, [op, t]);
 
-  // ─────────────── Reboot ───────────────
+  const aisleLabel = useMemo((): string => {
+    const map: Record<AisleMode, string> = {
+      0: (t("aisle_mode_0") as string) || "0 — Normally closed, no flap restriction",
+      1: (t("aisle_mode_1") as string) || "1 — Normally open",
+      2: (t("aisle_mode_2") as string) || "2 — Normally closed, left flap only",
+      3: (t("aisle_mode_3") as string) || "3 — Normally closed, right flap only",
+    };
+    return map[aisleMode];
+  }, [aisleMode, t]);
+
+  // ── Actions ─────────────────────────────────────────────────
   const doReboot = async () => {
     if (!device) return;
     try {
@@ -125,7 +157,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
   };
 
   const askReboot = () => {
-    if (!isMaint || !device) return;
+    if (!device) return;
     window.logger?.info?.("[modal] confirm reboot open", { deviceId: device.id, name: device.name });
     setM({
       open: true,
@@ -139,7 +171,6 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
     });
   };
 
-  // ─────────────── Get Device Log ───────────────
   const handleGetDeviceLog = async () => {
     if (!device?.deviceIp) {
       setM({ open: true, variant: "error", title: t("error") as string, message: "No device IP" });
@@ -147,9 +178,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
     }
     setLoadingLog(true);
     setM({
-      open: true,
-      variant: "info",
-      title: t("info") as string,
+      open: true, variant: "info", title: t("info") as string,
       message: (
         <div className="flex items-center gap-2">
           <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -165,9 +194,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
       const res = await window.devices?.getDeviceLog?.({ host: device.deviceIp });
       if (res?.ok) {
         setM({
-          open: true,
-          variant: "success",
-          title: t("success") as string,
+          open: true, variant: "success", title: t("success") as string,
           message: (
             <div className="text-sm">
               <div>{t("device_log_ok") as string}</div>
@@ -183,7 +210,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
     }
   };
 
-  // ถ้า modal ยังไม่เปิดหรือยังไม่มี device → render เฉพาะ StatusModal (อย่าตัด hook ออก)
+  // ── Render fallback ─────────────────────────────────────────
   if (!open || !device) {
     return (
       <StatusModal
@@ -199,6 +226,23 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
     );
   }
 
+  // ✅ ปุ่มมาตรฐาน (ให้ขนาดเท่ากันทุกที่)
+  const BTN_BASE = "h-10 min-w-[160px] rounded-lg text-sm";
+  const BTN_PRIMARY = `${BTN_BASE} bg-blue-600 text-white hover:bg-blue-700`;
+  const BTN_SECONDARY = `${BTN_BASE} border hover:bg-gray-50`;
+
+  const modalFooter = (
+    <div className="flex justify-end">
+      <button
+        onClick={onClose}
+        className={BTN_SECONDARY}            // ⬅️ ใช้ปุ่มมาตรฐาน
+      >
+        {t("close") || t("cancel") || "Close"}
+      </button>
+    </div>
+  );
+
+  // ── UI ──────────────────────────────────────────────────────
   return (
     <>
       <Modal
@@ -206,8 +250,9 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
         onClose={onClose}
         title={`${t("gate_operation_title")} – ${device.name}`}
         size="md"
+        footer={modalFooter}   // ⬅️ เพิ่มบรรทัดนี้
       >
-        {/* Header: สรุป & badge */}
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-600">
             <div>
@@ -226,14 +271,14 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
           <StatusPill status={status} title={`effective: ${status}`} />
         </div>
 
-        {/* แจ้งเตือนควบคุมไม่ได้ */}
+        {/* Not controllable hint */}
         {!canControl && (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-sm px-3 py-2">
             {t("not_online_warning")}
           </div>
         )}
 
-        {/* heartbeat & probe */}
+        {/* HB & Probe */}
         <div className="mt-3 text-xs text-gray-600">
           <div>
             HB:&nbsp;
@@ -255,9 +300,10 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
           </div>
         </div>
 
-        {/* เลือกคำสั่ง Gate — Dropdown + Optgroup */}
-        <fieldset className="mt-4 rounded-xl border p-3">
+        {/* ───────────────── Group 1: Operation ───────────────── */}
+        <fieldset className="mt-4 rounded-2xl border p-3">
           <legend className="px-2 text-sm font-semibold">{t("gate_operation_control")}</legend>
+
           <label className="mt-2 block text-sm">
             <span className="text-gray-600">{t("operation")}</span>
             <select
@@ -278,35 +324,103 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
               </optgroup>
             </select>
           </label>
+
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => {
+                if (!canControl) {
+                  setM({
+                    open: true,
+                    variant: "info",
+                    title: t("info") as string,
+                    message: (t("operation_blocked") as string) || (t("not_online_warning") as string),
+                  });
+                  return;
+                }
+                setConfirmOpOpen(true);
+              }}
+              className={BTN_PRIMARY}         // ⬅️ ใช้ปุ่มมาตรฐาน"
+            >
+              {(t("set_operation") as string) || "Set Operation"}
+            </button>
+          </div>
         </fieldset>
 
-        {/* ▶️ Action Row */}
-        <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border hover:bg-gray-50">
-            {t("cancel")}
-          </button>
-          <button
-            onClick={() => {
-              if (!canControl) {
-                window.logger?.warn?.("[device] gate op blocked (not online)", { deviceId: device.id, effectiveStatus: status });
-                setM({
-                  open: true,
-                  variant: "info",
-                  title: t("info") as string,
-                  message: (t("operation_blocked") as string) || (t("not_online_warning") as string),
-                });
-                return;
-              }
-              setConfirmOpen(true); // ✅ เปิด dialog ยืนยันก่อนส่ง
-            }}
-            disabled={!canControl}
-            className={`px-4 py-2 rounded-lg text-white ${
-              canControl ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"
-            }`}
-          >
-            {t("enter")}
-          </button>
-        </div>
+        {/* ──────────────── Group 2: Aisle Mode (5.1.4) ──────────────── */}
+        <fieldset className="mt-4 rounded-2xl border p-3">
+          <legend className="px-2 text-sm font-semibold">{(t("aisle_mode") as string) || "Aisle Mode (5.1.4)"}</legend>
+
+          <label className="mt-2 block text-sm">
+            <span className="text-gray-600">{t("mode") || "Mode"}</span>
+            <select
+              className="mt-1 w-full border rounded-lg px-3 py-2 bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
+              value={aisleMode}
+              onChange={(e) => setAisleMode(Number(e.target.value) as AisleMode)}
+              disabled={!canControl}
+            >
+              <option value={0}>{(t("aisle_mode_0") as string) || "0 — Normally closed, no flap restriction"}</option>
+              <option value={1}>{(t("aisle_mode_1") as string) || "1 — Normally open"}</option>
+              <option value={2}>{(t("aisle_mode_2") as string) || "2 — Normally closed, left flap only"}</option>
+              <option value={3}>{(t("aisle_mode_3") as string) || "3 — Normally closed, right flap only"}</option>
+            </select>
+          </label>
+
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => {
+                if (!canControl) {
+                  setM({
+                    open: true,
+                    variant: "info",
+                    title: t("info") as string,
+                    message: (t("operation_blocked") as string) || (t("not_online_warning") as string),
+                  });
+                  return;
+                }
+                setConfirmAisleOpen(true);
+              }}
+              className={BTN_PRIMARY}         // ⬅️ ใช้ปุ่มมาตรฐาน"
+            >
+              {(t("set_aisle_mode") as string) || "Set Aisle Mode"}
+            </button>
+          </div>
+        </fieldset>
+
+        {/* ─────────────── Maintenance tools ─────────────── */}
+        {canSeeMaintTools && (
+          <fieldset className="mt-4 rounded-2xl border p-3">
+            <legend className="px-2 text-sm font-semibold">{t("maintenance_tools")}</legend>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={askReboot}
+                disabled={busy}
+                className="px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60"
+              >
+                {t("reboot_gate")}
+              </button>
+
+              {status === "online" && device?.deviceIp && (
+                <button
+                  onClick={() => setShowTerm(true)}
+                  className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+                >
+                  {t("open_console")}
+                </button>
+              )}
+
+              {status === "online" && device?.deviceIp && (
+                <button
+                  onClick={handleGetDeviceLog}
+                  disabled={loadingLog}
+                  className="px-4 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60"
+                >
+                  {loadingLog ? (t("getting_logs") as string) : (t("get_device_log") as string)}
+                </button>
+              )}
+            </div>
+            <div className="mt-2 text-xs text-gray-400">{t("console_hint")}</div>
+          </fieldset>
+        )}
 
         {/* Terminal Modal */}
         <TerminalModal
@@ -317,7 +431,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
         />
       </Modal>
 
-      {/* Status Modal (info/success/error/confirm เฉพาะ use case อื่น ๆ) */}
+      {/* Status Modal รวม info/success/error */}
       <StatusModal
         open={m.open}
         variant={m.variant}
@@ -329,21 +443,16 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
         cancelText={(t("cancel") as string) || "Cancel"}
       />
 
-      {/* ✅ Confirm Dialog เมื่อกด Enter */}
+      {/* ✅ Confirm: Operation */}
       <Dialog
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        title={
-          <span>
-            {(t("confirm_operation") as string) || "Confirm operation"}
-          </span>
-        }
+        open={confirmOpOpen}
+        onClose={() => setConfirmOpOpen(false)}
+        title={<span>{(t("confirm_operation") as string) || "Confirm operation"}</span>}
         size="sm"
         footer={
           <>
-            <button
-              onClick={() => setConfirmOpen(false)}
-              className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+            <button onClick={() => setConfirmOpOpen(false)} 
+            className={BTN_SECONDARY}       // ⬅️ ปรับให้ขนาดเท่ากัน 
             >
               {t("cancel")}
             </button>
@@ -354,14 +463,20 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
                 const res = await window.devices?.setOperation?.(device.id, op);
                 if (!res?.ok) {
                   setM({ open: true, variant: "error", title: t("error") as string, message: res?.error || "Send failed" });
-                  setConfirmOpen(false);
+                  setConfirmOpOpen(false);
                   return;
                 }
-                setM({ open: true, variant: "success", title: t("success") as string, message: `${t("send_command") || "Send command"}:  ${opLabel}` });
-                setConfirmOpen(false);
-                onClose();
+                // call legacy onEnter callback (optional)
+                onEnter?.(device, op);
+                setM({
+                  open: true,
+                  variant: "success",
+                  title: t("success") as string,
+                  message: `${t("send_command") || "Send command"}: ${opLabel}`,
+                });
+                setConfirmOpOpen(false);
               }}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              className={BTN_PRIMARY}         // ⬅️ ปรับให้ขนาดเท่ากัน
             >
               {t("confirm") || "Confirm"}
             </button>
@@ -381,8 +496,63 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
           </div>
           <div className="text-xs text-gray-500 mt-1">
             {(t("note") as string) || "Note"}:{" "}
-            {(t("operation_requires_online") as string) ||
-              "Operation requires device to be online."}
+            {(t("operation_requires_online") as string) || "Operation requires device to be online."}
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ✅ Confirm: Aisle Mode */}
+      <Dialog
+        open={confirmAisleOpen}
+        onClose={() => setConfirmAisleOpen(false)}
+        title={<span>{(t("confirm_aisle_mode") as string) || "Confirm aisle mode"}</span>}
+        size="sm"
+        footer={
+          <>
+            <button onClick={() => setConfirmOpOpen(false)} 
+            className={BTN_SECONDARY}       // ⬅️ ปรับให้ขนาดเท่ากัน 
+            >
+              {t("cancel")}
+            </button>
+            <button
+              onClick={async () => {
+                if (!device) return;
+                window.logger?.info?.("[modal] setAisleMode =>", { deviceId: device.id, aisleMode });
+                const r = await window.devices?.setAisleMode?.(device.id, aisleMode);
+                if (!r?.ok) {
+                  setM({ open: true, variant: "error", title: t("error") as string, message: r?.error || "Send failed" });
+                  setConfirmAisleOpen(false);
+                  return;
+                }
+                setM({
+                  open: true,
+                  variant: "success",
+                  title: t("success") as string,
+                  message: `${(t("set_aisle_mode") as string) || "Set Aisle Mode"}: ${aisleLabel}`,
+                });
+                setConfirmAisleOpen(false);
+              }}
+              className={BTN_PRIMARY}         // ⬅️ ปรับให้ขนาดเท่ากัน
+            >
+              {t("confirm") || "Confirm"}
+            </button>
+          </>
+        }
+      >
+        <div className="text-sm text-gray-700 space-y-1">
+          <div>
+            {(t("set_aisle_mode") as string) || "Set Aisle Mode"}:{" "}
+            <span className="font-semibold">{aisleLabel}</span>
+          </div>
+          <div>
+            {(t("device") as string) || "Device"}:{" "}
+            <span className="font-semibold">
+              {device.name} ({device.id})
+            </span>
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {(t("note") as string) || "Note"}:{" "}
+            {(t("operation_requires_online") as string) || "Operation requires device to be online."}
           </div>
         </div>
       </Dialog>

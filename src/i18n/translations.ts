@@ -86,8 +86,23 @@ export const translations: Record<Lang, Record<string, string>> = {
     last_seen: "เห็นล่าสุด",
     send_command: "ส่งคำสั่ง",
     operation_requires_online: "คำสั่งนี้ต้องใช้งานเมื่ออุปกรณ์อยู่ในสถานะออนไลน์เท่านั้น",
-    device : "อุปกรณ์",
+    device: "อุปกรณ์",
     confirm_operation: "ยืนยันดำเนินการนี้หรือไม่?",
+    set_operation: "สั่งการ",
+
+    // Aisle Mode (5.1.4)
+    aisle_mode_title: "โหมดช่องทาง (5.1.4)",
+    aisle_mode: "โหมดช่องทาง",
+    aisle_mode_mode: "โหมด",
+    mode: "โหมด",
+    aisle_mode_value_0: "0 — ปกติปิด (ไม่จำกัดบานประตู)",
+    aisle_mode_value_1: "1 — ปกติเปิด",
+    aisle_mode_value_2: "2 — ปกติปิด เปิดเฉพาะบานซ้าย",
+    aisle_mode_value_3: "3 — ปกติปิด เปิดเฉพาะบานขวา",
+    set_aisle_mode: "ตั้งค่าโหมดช่องทาง",
+    set_aisle_mode_success: "อัปเดตโหมดช่องทางแล้ว",
+    set_aisle_mode_failed: "ตั้งค่าโหมดช่องทางไม่สำเร็จ",
+    get_aisle_mode_failed: "ดึงโหมดช่องทางไม่สำเร็จ",
 
     // Maintenance tools / Terminal
     maintenance_tools: "เครื่องมือบำรุงรักษา",
@@ -99,7 +114,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     local_shell: "เชลล์ภายในเครื่อง",
     terminate_hint: "กด Ctrl+C/D เพื่อออก",
 
-    // 👉 Device log actions
+    // Device log actions
     get_device_log: "ดึงไฟล์ล็อกอุปกรณ์",
     getting_logs: "กำลังดึงล็อก...",
     device_log_ok: "ดึงล็อกเสร็จแล้ว",
@@ -219,8 +234,23 @@ export const translations: Record<Lang, Record<string, string>> = {
     last_seen: "Last seen",
     send_command: "Send command",
     operation_requires_online: "Operation requires device to be online.",
-    device : "Device",
+    device: "Device",
     confirm_operation: "Confirm this operation?",
+    set_operation: "Set Operation",
+
+    // Aisle Mode (5.1.4)
+    aisle_mode_title: "Aisle Mode (5.1.4)",
+    aisle_mode: "Aisle Mode",
+    aisle_mode_mode: "Mode",
+    mode: "Mode",
+    aisle_mode_value_0: "0 — Normally closed, no flap restriction",
+    aisle_mode_value_1: "1 — Normally open",
+    aisle_mode_value_2: "2 — Normally closed, left flap only",
+    aisle_mode_value_3: "3 — Normally closed, right flap only",
+    set_aisle_mode: "Set Aisle Mode",
+    set_aisle_mode_success: "Aisle mode updated",
+    set_aisle_mode_failed: "Failed to update aisle mode",
+    get_aisle_mode_failed: "Failed to get aisle mode",
 
     // Maintenance tools / Terminal
     maintenance_tools: "Maintenance Tools",
@@ -232,7 +262,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     local_shell: "Local shell",
     terminate_hint: "Press Ctrl+C/D to exit",
 
-    // 👉 Device log actions
+    // Device log actions
     get_device_log: "Get Device Log",
     getting_logs: "Getting logs...",
     device_log_ok: "Device log fetched",

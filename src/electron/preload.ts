@@ -65,6 +65,10 @@ contextBridge.exposeInMainWorld("devices", {
     try { console.log("[preload] setOperation ->", payload); } catch {}
     return ipcRenderer.invoke("devices:set-operation", payload);
   },
+  getAisleMode: (deviceId: string) =>
+    ipcRenderer.invoke("devices:get-aisle-mode", deviceId),
+  setAisleMode: (deviceId: string, aisleMode: number) =>
+    ipcRenderer.invoke("devices:set-aisle-mode", { deviceId, aisleMode }),
 });
 
 contextBridge.exposeInMainWorld("terminal", {

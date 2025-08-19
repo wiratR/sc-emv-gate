@@ -19,6 +19,14 @@ type HB = {
   message?: string;
 };
 
+// ===== เพิ่ม type + state ด้านบนไฟล์ =====
+type AisleMode = 0 | 1 | 2 | 3;
+const currentAisleMode = new Map<string, AisleMode>();
+const isAisleMode = (x: any): x is AisleMode => {
+  const n = Number(x);
+  return Number.isInteger(n) && n >= 0 && n <= 3;
+};
+
 /** โครงจัดเก็บ (เพิ่ม lastHeartbeat) */
 type StoreItem = HB & { lastHeartbeat: string };
 
@@ -27,6 +35,8 @@ export type HeartbeatServer = {
   close: () => void;
   getCurrentOperation: (deviceId: string) => Operation | undefined;
   setCurrentOperation: (deviceId: string, op: Operation) => void;
+  getAisleMode: (deviceId: string) => AisleMode | undefined;   // ← เพิ่ม
+  setAisleMode: (deviceId: string, m: AisleMode) => void;       // ← เพิ่ม
 };
 
 // เก็บ operation ปัจจุบันของแต่ละ deviceId
@@ -198,6 +208,24 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
         return okJson(res, { ok: true, operation: op });
       }
 
+      // ใน createServer: เพิ่ม handlers ใหม่
+      if (req.method === "POST" && pathname.startsWith("/aisle-mode/")) {
+        const deviceId = decodeURIComponent(pathname.split("/")[2] || "");
+        if (!deviceId) return bad(res, 400, "missing deviceId");
+        const body = await readJsonBody(req).catch(() => null);
+        const mode = body?.aisleMode;
+        if (!isAisleMode(mode)) return bad(res, 400, "invalid aisleMode (0..3)");
+        currentAisleMode.set(deviceId, mode as AisleMode);
+        return okJson(res, { ok: true });
+      }
+
+      if (req.method === "GET" && pathname.startsWith("/aisle-mode/")) {
+        const deviceId = decodeURIComponent(pathname.split("/")[2] || "");
+        if (!deviceId) return bad(res, 400, "missing deviceId");
+        const mode = currentAisleMode.get(deviceId) ?? null;
+        return okJson(res, { ok: true, aisleMode: mode });
+      }
+
       // not found
       return bad(res, 404, "not found");
     } catch (err: any) {
@@ -214,5 +242,7 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
     close: () => server.close(),
     getCurrentOperation: (deviceId: string) => currentOp.get(deviceId),
     setCurrentOperation: (deviceId: string, op: Operation) => currentOp.set(deviceId, op),
+    getAisleMode: (id) => currentAisleMode.get(id),               // ← เพิ่ม
+    setAisleMode: (id, m) => currentAisleMode.set(id, m),         // ← เพิ่ม
   };
 }

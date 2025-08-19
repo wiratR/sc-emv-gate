@@ -116,6 +116,14 @@ declare global {
         deviceId: string,
         operation: Operation
       ) => Promise<{ ok: true } | { ok: false; error: string }>;
+      getAisleMode?: (deviceId: string) => Promise<
+        | { ok: true; aisleMode: 0 | 1 | 2 | 3 | null }
+        | { ok: false; error: string }
+      >;
+      setAisleMode?: (deviceId: string, aisleMode: 0 | 1 | 2 | 3) => Promise<
+        | { ok: true }
+        | { ok: false; error: string }
+      >;
     };
 
     /** Terminal/xterm bridge – global callback style */
