@@ -161,6 +161,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     online_only_note: "จะดำเนินการเฉพาะอุปกรณ์ที่อยู่ในสถานะ ONLINE เท่านั้น",
     online_only_short: "ออนไลน์",
     no_online_in_scope: "ไม่มีอุปกรณ์ที่ออนไลน์ในขอบเขตที่เลือก",
+    bulk_inservice_last: "ให้บริการ (ตามค่าที่เคยใช้)",
+    bulk_inservice_last_done: "สั่งโหมดให้บริการตามค่าที่เคยใช้แล้ว",
   },
 
   en: {
@@ -322,6 +324,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     online_only_note: "Will only apply to devices that are ONLINE.",
     online_only_short: "Online only",
     no_online_in_scope: "No online devices in the selected scope",
+    bulk_inservice_last: "Resume service (last mode)",
+    bulk_inservice_last_done: "Resumed service using last mode",
   },
 };
 

@@ -124,6 +124,12 @@ declare global {
         | { ok: true }
         | { ok: false; error: string }
       >;
+      getLastInserviceOp?: (
+        deviceId: string
+      ) => Promise<
+        | { ok: true; op: "inservice_entry" | "inservice_exit" | "inservice_bidirect" | null }
+        | { ok: false; error: string }
+      >;
     };
 
     /** Terminal/xterm bridge – global callback style */

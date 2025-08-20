@@ -34,7 +34,6 @@ type BulkOp = Extract<Operation, "station_close" | "emergency">;
 type ApiResult = { ok: true } | { ok: false; error: string };
 
 // ────────────────────────────────────────────────────────────────
-
 export default function BulkOpsOnlineOnly({
   devices,
   currentList,
@@ -59,7 +58,7 @@ export default function BulkOpsOnlineOnly({
   // ออนไลน์แบบ "effective" = status === online และ lastHeartbeat ไม่เกิน offlineMs
   const isEffectiveOnline = (d: Device) => {
     if ((d.status ?? "offline") !== "online") return false;
-    const ts = d.lastHeartbeat ? Date.parse(d.lastHeartbeat as any) : NaN;
+    const ts = d.lastHeartbeat ? Date.parse(String(d.lastHeartbeat)) : NaN;
     if (!Number.isFinite(ts)) return false;
     const age = Date.now() - ts;
     return age >= 0 && age < offlineMs;
@@ -153,6 +152,58 @@ export default function BulkOpsOnlineOnly({
 
   const onlineCountForScope = scope === "all" ? onlineAll : onlineInTab;
 
+  async function getLastInserviceOp(
+    deviceId: string
+  ): Promise<"inservice_entry" | "inservice_exit" | "inservice_bidirect" | "fallback"> {
+    // ถ้ามี bridge
+    if (window.devices?.getLastInserviceOp) {
+      const r = await window.devices.getLastInserviceOp(deviceId);
+      if (r?.ok && r.op) return r.op;
+    }
+    // Fallback เรียกผ่าน fetch ไปที่ heartbeatServer โดยตรง (ถ้าพาธนี้ accessible จาก renderer)
+    try {
+      const res = await fetch(`/inservice-last/${encodeURIComponent(deviceId)}`);
+      const j = await res.json();
+      if (res.ok && j?.ok && j?.op) return j.op;
+    } catch {}
+    return "fallback";
+  }
+
+  const doBulkInserviceLast = async () => {
+    setBusy(true);
+    try {
+      const onlineTargets = targets; // targets ถูกกรอง ONLINE แล้ว
+      const results = await Promise.all(
+        onlineTargets.map(async (d) => {
+          const last = await getLastInserviceOp(d.id);
+          const op: Operation = (last === "fallback" ? "inservice_bidirect" : last) as Operation;
+          try {
+            const raw =
+              (await window.devices?.setOperation?.(d.id, op)) ??
+              ({ ok: false, error: "No response" } as const);
+            const r = raw as ApiResult;
+            return { id: d.id, ok: r.ok, error: r.ok ? undefined : r.error };
+          } catch (e: any) {
+            return { id: d.id, ok: false, error: String(e?.message || e) };
+          }
+        })
+      );
+
+      const okCount = results.filter((r) => r.ok).length;
+      const failCount = results.length - okCount;
+      setM({
+        open: true,
+        variant: failCount ? "error" : "success",
+        title: failCount ? ((t("error") as string) || "Error") : ((t("success") as string) || "Success"),
+        message: `${(t("send_command") as string) || "Send command"}: ${(t("bulk_inservice_last") as string) || "Resume service (last mode)"} — OK ${okCount}/${results.length}${
+          failCount ? `, ${(t("failed") as string) || "failed"} ${failCount}` : ""
+        }`,
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section className={className}>
       <fieldset className="rounded-2xl border p-3">
@@ -185,7 +236,7 @@ export default function BulkOpsOnlineOnly({
 
         {/* Action buttons */}
         <div className="mt-3 flex flex-wrap gap-2">
-          {/* Station Close → แดง */}
+          {/* Station Close → แดงธรรมดา */}
           <button
             onClick={() => openConfirm("station_close")}
             disabled={busy || onlineCountForScope === 0}
@@ -201,6 +252,15 @@ export default function BulkOpsOnlineOnly({
             className="px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-60"
           >
             {(t("bulk_emergency") as string) || "Emergency (ALL)"}
+          </button>
+
+          {/* Resume service (last) — สีเขียว */}
+          <button
+            onClick={doBulkInserviceLast}
+            disabled={busy || onlineCountForScope === 0}
+            className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+          >
+            {(t("bulk_inservice_last") as string) || "Resume service (last mode)"}
           </button>
         </div>
       </fieldset>

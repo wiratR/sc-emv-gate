@@ -75,9 +75,9 @@ export default function DeviceCard({ device, onClick }: Props) {
 
   const opLabel = useMemo((): string => {
     switch (op) {
-      case "inservice_entry":    return (t("op_inservice_entry") as string) || "Inservice – Entry";
-      case "inservice_exit":     return (t("op_inservice_exit") as string) || "Inservice – Exit";
-      case "inservice_bidirect": return (t("op_inservice_bi") as string)   || "Inservice – Bi-direction";
+      case "inservice_entry":    return (t("op_inservice_entry") as string) || "Inservice - Entry";
+      case "inservice_exit":     return (t("op_inservice_exit") as string) || "Inservice - Exit";
+      case "inservice_bidirect": return (t("op_inservice_bi") as string)   || "Inservice - Bi-direction";
       case "out_of_service":     return (t("op_out_of_service") as string) || "Out of service";
       case "station_close":      return (t("op_station_close") as string)  || "Station close";
       case "emergency":          return (t("op_emergency") as string)      || "Emergency";

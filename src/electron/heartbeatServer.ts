@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 
 import { loadConfig } from "./config";
-import { isOperation, type Operation } from "./models/operations"
+import { isOperation, type Operation } from "./models/operations";
 
 /** โครง HB ที่อุปกรณ์ส่งมา */
 type HB = {
@@ -19,7 +19,7 @@ type HB = {
   message?: string;
 };
 
-// ===== เพิ่ม type + state ด้านบนไฟล์ =====
+// ===== Aisle Mode =====
 type AisleMode = 0 | 1 | 2 | 3;
 const currentAisleMode = new Map<string, AisleMode>();
 const isAisleMode = (x: any): x is AisleMode => {
@@ -30,13 +30,54 @@ const isAisleMode = (x: any): x is AisleMode => {
 /** โครงจัดเก็บ (เพิ่ม lastHeartbeat) */
 type StoreItem = HB & { lastHeartbeat: string };
 
+// ===== Inservice last =====
+type InserviceOp = "inservice_entry" | "inservice_exit" | "inservice_bidirect";
+const isInservice = (x: any): x is InserviceOp =>
+  x === "inservice_entry" || x === "inservice_exit" || x === "inservice_bidirect";
+
+// เก็บ op ล่าสุดแบบ inservice ต่ออุปกรณ์ (in-memory)
+const lastInservice = new Map<string, InserviceOp>();
+
+// ---------- prefs file (persist last inservice) ----------
+function getPrefsPath(): string {
+  const { config, pathUsed } = loadConfig();
+  const baseDir = pathUsed !== "(defaults)" ? path.dirname(pathUsed) : process.cwd();
+  const targetDir = path.isAbsolute(config.deviceCommunicationPath || "./data")
+    ? (config.deviceCommunicationPath as string)
+    : path.join(baseDir, config.deviceCommunicationPath || "./data");
+  fs.mkdirSync(targetDir, { recursive: true });
+  return path.join(targetDir, "device-prefs.json");
+}
+
+function loadPrefs(): Record<string, InserviceOp> {
+  const p = getPrefsPath();
+  if (!fs.existsSync(p)) return {};
+  try {
+    const j = JSON.parse(fs.readFileSync(p, "utf8"));
+    return j && typeof j === "object" ? (j as Record<string, InserviceOp>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePrefs(prefs: Record<string, InserviceOp>) {
+  fs.writeFileSync(getPrefsPath(), JSON.stringify(prefs, null, 2));
+}
+
+// helper: persist Map -> file
+function saveLastInservice() {
+  const obj: Record<string, InserviceOp> = {};
+  for (const [id, op] of lastInservice.entries()) obj[id] = op;
+  savePrefs(obj);
+}
+
 export type HeartbeatServer = {
   port: number;
   close: () => void;
   getCurrentOperation: (deviceId: string) => Operation | undefined;
   setCurrentOperation: (deviceId: string, op: Operation) => void;
-  getAisleMode: (deviceId: string) => AisleMode | undefined;   // ← เพิ่ม
-  setAisleMode: (deviceId: string, m: AisleMode) => void;       // ← เพิ่ม
+  getAisleMode: (deviceId: string) => AisleMode | undefined;
+  setAisleMode: (deviceId: string, m: AisleMode) => void;
 };
 
 // เก็บ operation ปัจจุบันของแต่ละ deviceId
@@ -135,6 +176,14 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
   const { config } = loadConfig();
   const port = Number(config.heartbeatPort || 3070);
 
+  // ▲ โหลด prefs ใส่ Map ตอนเริ่ม
+  {
+    const prefs = loadPrefs();
+    for (const [id, op] of Object.entries(prefs)) {
+      if (isInservice(op)) lastInservice.set(id, op);
+    }
+  }
+
   const server = http.createServer(async (req, res) => {
     setCors(res);
     if (req.method === "OPTIONS") {
@@ -145,8 +194,7 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
     const { pathname } = parseUrl(req, port);
 
     try {
-
-      // ✅ NEW: Time sync
+      // ✅ Time sync
       if (req.method === "GET" && (req.url === "/time" || req.url === "/sync-time")) {
         const now = new Date();
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -154,19 +202,19 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
         res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
         return okJson(res, {
           ok: true,
-          nowUtc: now.toISOString(),     // 2025-08-15T14:56:34.123Z
-          epochMs: now.getTime(),        // 1723727794123
-          tz,                            // เช่น "Asia/Bangkok"
-          offsetMinutes                  // เช่น 420
+          nowUtc: now.toISOString(),
+          epochMs: now.getTime(),
+          tz,
+          offsetMinutes,
         });
       }
-      
-      // GET /hb → คืนทั้งหมด
+
+      // GET /hb
       if (req.method === "GET" && pathname === "/hb") {
         return okJson(res, { ok: true, devices: readStore() });
       }
 
-      // POST /hb → upsert รายการเดียว
+      // POST /hb
       if (req.method === "POST" && pathname === "/hb") {
         const body = await readJsonBody(req).catch(() => null);
         if (!body || !body.id) return bad(res, 400, "id required");
@@ -176,7 +224,7 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
         return okJson(res, { ok: true });
       }
 
-      // POST /hb/bulk → upsert หลายรายการ
+      // POST /hb/bulk
       if (req.method === "POST" && pathname === "/hb/bulk") {
         const body = await readJsonBody(req).catch(() => null);
         if (!Array.isArray(body)) return bad(res, 400, "array required");
@@ -187,7 +235,6 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
       }
 
       // POST /operation/:deviceId
-      // รูปแบบพาธ: /operation/DEVICE_ID
       if (req.method === "POST" && pathname.startsWith("/operation/")) {
         const deviceId = decodeURIComponent(pathname.split("/")[2] || "");
         if (!deviceId) return bad(res, 400, "missing deviceId");
@@ -197,6 +244,13 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
         if (!isOperation(op)) return bad(res, 400, "invalid operation");
 
         currentOp.set(deviceId, op as Operation);
+
+        // บันทึก last inservice
+        if (isInservice(op)) {
+          lastInservice.set(deviceId, op as InserviceOp);
+          saveLastInservice();
+        }
+
         return okJson(res, { ok: true });
       }
 
@@ -208,7 +262,7 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
         return okJson(res, { ok: true, operation: op });
       }
 
-      // ใน createServer: เพิ่ม handlers ใหม่
+      // POST /aisle-mode/:deviceId
       if (req.method === "POST" && pathname.startsWith("/aisle-mode/")) {
         const deviceId = decodeURIComponent(pathname.split("/")[2] || "");
         if (!deviceId) return bad(res, 400, "missing deviceId");
@@ -219,11 +273,38 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
         return okJson(res, { ok: true });
       }
 
+      // GET /aisle-mode/:deviceId
       if (req.method === "GET" && pathname.startsWith("/aisle-mode/")) {
         const deviceId = decodeURIComponent(pathname.split("/")[2] || "");
         if (!deviceId) return bad(res, 400, "missing deviceId");
         const mode = currentAisleMode.get(deviceId) ?? null;
         return okJson(res, { ok: true, aisleMode: mode });
+      }
+
+      // GET /inservice-last/:deviceId
+      if (req.method === "GET" && pathname.startsWith("/inservice-last/")) {
+        const id = decodeURIComponent(pathname.split("/")[2] || "");
+        if (!id) return bad(res, 400, "missing deviceId");
+        const op = lastInservice.get(id) ?? null;
+        return okJson(res, { ok: true, op });
+      }
+
+      // POST /inservice-last/:deviceId  body: { op: "inservice_entry" | "inservice_exit" | "inservice_bidirect" }
+      if (req.method === "POST" && pathname.startsWith("/inservice-last/")) {
+        const id = decodeURIComponent(pathname.split("/")[2] || "");
+        if (!id) return bad(res, 400, "missing deviceId");
+        const body = await readJsonBody(req).catch(() => null);
+        const op = String(body?.op || "");
+        if (!isInservice(op)) return bad(res, 400, "invalid inservice op");
+        lastInservice.set(id, op as InserviceOp);
+        saveLastInservice();
+        return okJson(res, { ok: true });
+      }
+
+      // GET /inservice-last  (ยกชุด)
+      if (req.method === "GET" && pathname === "/inservice-last") {
+        const items = Array.from(lastInservice.entries()).map(([id, op]) => ({ id, op }));
+        return okJson(res, { ok: true, items });
       }
 
       // not found
@@ -242,7 +323,7 @@ export function startHeartbeatServerFromConfig(): HeartbeatServer {
     close: () => server.close(),
     getCurrentOperation: (deviceId: string) => currentOp.get(deviceId),
     setCurrentOperation: (deviceId: string, op: Operation) => currentOp.set(deviceId, op),
-    getAisleMode: (id) => currentAisleMode.get(id),               // ← เพิ่ม
-    setAisleMode: (id, m) => currentAisleMode.set(id, m),         // ← เพิ่ม
+    getAisleMode: (id) => currentAisleMode.get(id),
+    setAisleMode: (id, m) => currentAisleMode.set(id, m),
   };
 }

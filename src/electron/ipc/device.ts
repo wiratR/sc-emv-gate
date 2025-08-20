@@ -6,6 +6,7 @@ import type { Operation } from "../models/operations";
 import fs from "fs";
 import { getHeartbeatServer } from "../main-hb-ref"; // ดูข้อถัดไป
 import { isOperation } from "../models/operations";
+import { loadConfig } from "../config";
 import os from "os";
 import path from "path";
 import { probeTcp } from "./devices/probe";
@@ -38,6 +39,17 @@ const isAisleMode = (x: any): x is AisleMode => {
   const n = Number(x);
   return Number.isInteger(n) && n >= 0 && n <= 3;
 };
+
+// Node >= 18 มี fetch ในตัวแล้ว
+type InserviceOp = "inservice_entry" | "inservice_exit" | "inservice_bidirect";
+
+function hbBaseUrl(): string {
+  const { config } = loadConfig();
+  const port = Number(config.heartbeatPort || 3070);
+  // const host = (config.stationIp as string) || "127.0.0.1";
+  const host = "127.0.0.1";
+  return `http://${host}:${port}`;
+}
 
 // ───────────────────────────────── helpers ─────────────────────────────────
 
@@ -325,4 +337,22 @@ ipcMain.handle("devices:set-aisle-mode", async (_e, payload: { deviceId?: string
   if (!hb) return { ok: false as const, error: "heartbeat server is not running" };
   hb.setAisleMode(id, m);
   return { ok: true as const };
+});
+
+/** ลงทะเบียนเฉพาะ handler ที่เพิ่มเข้ามา */
+ipcMain.handle("devices:getLastInserviceOp", async (_evt, deviceId: string) => {
+  try {
+    if (!deviceId) return { ok: false as const, error: "missing deviceId" };
+    const base = hbBaseUrl();
+    const res = await fetch(`${base}/inservice-last/${encodeURIComponent(deviceId)}`);
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !j?.ok) {
+      return { ok: false as const, error: j?.error || `HTTP ${res.status}` };
+    }
+    // j.op อาจเป็น null ถ้ายังไม่เคยตั้งค่า
+    const op: InserviceOp | null = j.op ?? null;
+    return { ok: true as const, op };
+  } catch (e: any) {
+    return { ok: false as const, error: String(e?.message || e) };
+  }
 });

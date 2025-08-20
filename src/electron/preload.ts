@@ -69,6 +69,13 @@ contextBridge.exposeInMainWorld("devices", {
     ipcRenderer.invoke("devices:get-aisle-mode", deviceId),
   setAisleMode: (deviceId: string, aisleMode: number) =>
     ipcRenderer.invoke("devices:set-aisle-mode", { deviceId, aisleMode }),
+
+  async getLastInserviceOp(deviceId: string): Promise<
+    | { ok: true; op: "inservice_entry" | "inservice_exit" | "inservice_bidirect" | null }
+    | { ok: false; error: string }
+  > {
+    return await ipcRenderer.invoke("devices:getLastInserviceOp", deviceId);
+  },
 });
 
 contextBridge.exposeInMainWorld("terminal", {
