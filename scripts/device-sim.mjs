@@ -124,6 +124,41 @@ async function setOp(deviceId, opRaw) {
   return op;
 }
 
+/** ----- Aisle Mode GET/POST (0..3) ----- */
+function isAisleMode(n) {
+  const x = Number(n);
+  return Number.isInteger(x) && x >= 0 && x <= 3;
+}
+function labelAisle(n) {
+  const map = {
+    0: "0 — Normally closed, no flap restriction",
+    1: "1 — Normally open",
+    2: "2 — Normally closed, left flap only",
+    3: "3 — Normally closed, right flap only",
+  };
+  return map[n] ?? String(n);
+}
+
+async function getAisle(deviceId) {
+  const res = await fetch(`${HOST}/aisle-mode/${encodeURIComponent(deviceId)}`);
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || !j.ok) throw new Error(`GET aisle-mode failed: ${res.status} ${JSON.stringify(j)}`);
+  return typeof j.aisleMode === "number" ? j.aisleMode : null;
+}
+
+async function setAisle(deviceId, mode) {
+  const n = Number(mode);
+  if (!isAisleMode(n)) throw new Error(`invalid aisleMode: "${mode}" (must be 0..3)`);
+  const res = await fetch(`${HOST}/aisle-mode/${encodeURIComponent(deviceId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ aisleMode: n }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || !j.ok) throw new Error(`SET aisle-mode failed: ${res.status} ${JSON.stringify(j)}`);
+  return n;
+}
+
 /** ----- Optional TCP probe server ----- */
 function makeProbeServer(port) {
   let server = null;
@@ -134,8 +169,8 @@ function makeProbeServer(port) {
     await new Promise((resolve, reject) => {
       server = net.createServer((socket) => {
         socket.setNoDelay(true);
-        socket.on("error", () => {});       // ← กลืน error จาก client ที่รีเซ็ตเร็ว
-        socket.on("data", () => {});        // ← อ่านทิ้ง
+        socket.on("error", () => {});
+        socket.on("data", () => {});
         try { socket.write("OK\r\n"); } catch {}
         socket.end();
       });
@@ -174,12 +209,17 @@ Device Simulator (HB + Operation poll + optional probe port)
 
 Usage:
   node scripts/device-sim.mjs run --id G1-01 --ip 127.0.0.1 [--status online|maintenance|fault] [--hb-interval 5000] [--op-poll 2000] [--probe-port 2222] [--probe on|off]
-  node scripts/device-sim.mjs get <deviceId>
-  node scripts/device-sim.mjs set <deviceId> <operation>
+  node scripts/device-sim.mjs get <deviceId>                # get current operation
+  node scripts/device-sim.mjs set <deviceId> <operation>    # set operation
+  node scripts/device-sim.mjs get-aisle <deviceId>          # get aisle mode (0..3)
+  node scripts/device-sim.mjs set-aisle <deviceId> <0|1|2|3># set aisle mode
 
 While running "run" mode, you can type commands:
   set <op>           set operation (aliases ok: in:entry, in:exit, bi, oos, close, emer)
   get                get current operation
+  aisle              get aisle mode
+  aisle <0|1|2|3>    set aisle mode quickly
+  aisle set <0..3>   set aisle mode explicitly
   status <s>         change device status (online|maintenance|fault)
   probe on|off|toggle
   help               show this help
@@ -214,6 +254,21 @@ async function main() {
     return;
   }
 
+  // ✅ new: top-level aisle getters/setters
+  if (cmd === "get-aisle") {
+    if (!a1) return printUsage();
+    const am = await getAisle(a1);
+    console.log(`[device-sim] aisle-mode ${a1} = ${am ?? "null"}${am != null ? ` (${labelAisle(am)})` : ""}`);
+    return;
+  }
+
+  if (cmd === "set-aisle") {
+    if (!a1 || typeof a2 === "undefined") return printUsage();
+    const n = await setAisle(a1, a2);
+    console.log(`[device-sim] set aisle-mode ${a1} -> ${n} (${labelAisle(n)}) : OK`);
+    return;
+  }
+
   if (cmd === "run") {
     const deviceId = args.id || a1 || "G1-01";
     const deviceIp = args.ip || "127.0.0.1";
@@ -240,9 +295,24 @@ async function main() {
     }, hbInterval);
     await sendHeartbeat({ deviceId, deviceIp, status: devStatus }); // fire immediately
 
-    // Op polling loop
+    // Initial reads
+    try {
+      const op0 = await getOp(deviceId);
+      console.log(`[device-sim] initial operation: ${op0 ?? "null"}`);
+    } catch (e) {
+      console.error("[device-sim] initial op error:", e.message);
+    }
+    try {
+      const am0 = await getAisle(deviceId);
+      console.log(`[device-sim] initial aisle-mode: ${am0 ?? "null"}${am0 != null ? ` (${labelAisle(am0)})` : ""}`);
+    } catch (e) {
+      console.error("[device-sim] initial aisle error:", e.message);
+    }
+
+    // Poll both op and aisle-mode
     let lastOp = null;
-    const opTimer = setInterval(async () => {
+    let lastAisle = null;
+    const pollTimer = setInterval(async () => {
       try {
         const op = await getOp(deviceId);
         if (op !== lastOp) {
@@ -251,6 +321,15 @@ async function main() {
         }
       } catch (e) {
         console.error("[device-sim] op poll error:", e.message);
+      }
+      try {
+        const am = await getAisle(deviceId);
+        if (am !== lastAisle) {
+          console.log(`[device-sim] aisle-mode changed: ${lastAisle ?? "null"} -> ${am ?? "null"}${am != null ? ` (${labelAisle(am)})` : ""}`);
+          lastAisle = am;
+        }
+      } catch (e) {
+        console.error("[device-sim] aisle poll error:", e.message);
       }
     }, opPoll);
 
@@ -279,6 +358,26 @@ async function main() {
             const op = await setOp(deviceId, raw);
             console.log(`[device-sim] set ${deviceId} -> ${op} : OK`);
           }
+        } else if (c === "aisle") {
+          // aisle / aisle get / aisle 2 / aisle set 2
+          const sub = (rest[0] || "").toLowerCase();
+          if (!sub || sub === "get") {
+            const am = await getAisle(deviceId);
+            console.log(`[device-sim] aisle-mode ${deviceId} = ${am ?? "null"}${am != null ? ` (${labelAisle(am)})` : ""}`);
+          } else if (sub === "set") {
+            const val = rest[1];
+            if (typeof val === "undefined" || !isAisleMode(val)) {
+              console.log("usage: aisle set <0|1|2|3>");
+            } else {
+              const n = await setAisle(deviceId, Number(val));
+              console.log(`[device-sim] set aisle-mode ${deviceId} -> ${n} (${labelAisle(n)}) : OK`);
+            }
+          } else if (isAisleMode(sub)) {
+            const n = await setAisle(deviceId, Number(sub));
+            console.log(`[device-sim] set aisle-mode ${deviceId} -> ${n} (${labelAisle(n)}) : OK`);
+          } else {
+            console.log("usage: aisle [get]|<0|1|2|3>|set <0|1|2|3>");
+          }
         } else if (c === "status") {
           const s = (rest[0] || "").toLowerCase();
           if (!["online", "maintenance", "fault"].includes(s)) {
@@ -306,7 +405,7 @@ async function main() {
 
     rl.on("close", () => {
       clearInterval(hbTimer);
-      clearInterval(opTimer);
+      clearInterval(pollTimer);
       if (probe) probe.off().catch(() => {});
       console.log("[device-sim] stopped");
       process.exit(0);

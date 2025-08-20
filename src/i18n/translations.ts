@@ -91,7 +91,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     set_operation: "สั่งการ",
 
     // Aisle Mode (5.1.4)
-    aisle_mode_title: "โหมดช่องทาง (5.1.4)",
+    aisle_mode_title: "โหมดช่องทาง",
     aisle_mode: "โหมดช่องทาง",
     aisle_mode_mode: "โหมด",
     mode: "โหมด",
@@ -103,6 +103,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     set_aisle_mode_success: "อัปเดตโหมดช่องทางแล้ว",
     set_aisle_mode_failed: "ตั้งค่าโหมดช่องทางไม่สำเร็จ",
     get_aisle_mode_failed: "ดึงโหมดช่องทางไม่สำเร็จ",
+    confirm_aisle_mode: "ยืนยันดำเนินการนี้หรือไม่?",
 
     // Maintenance tools / Terminal
     maintenance_tools: "เครื่องมือบำรุงรักษา",
@@ -251,6 +252,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     set_aisle_mode_success: "Aisle mode updated",
     set_aisle_mode_failed: "Failed to update aisle mode",
     get_aisle_mode_failed: "Failed to get aisle mode",
+    confirm_aisle_mode: "Confirm this aisle mode?",
 
     // Maintenance tools / Terminal
     maintenance_tools: "Maintenance Tools",

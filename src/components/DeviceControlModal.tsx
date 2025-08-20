@@ -118,21 +118,21 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
   const opLabel = useMemo((): string => {
     switch (op) {
       case "inservice_entry":    return (t("op_inservice_entry") as string) || "Inservice - Entry";
-      case "inservice_exit":     return (t("op_inservice_exit") as string) || "Inservice - Exit";
-      case "inservice_bidirect": return (t("op_inservice_bi") as string)   || "Inservice - Bi-direction";
-      case "out_of_service":     return (t("op_out_of_service") as string) || "Out of service";
-      case "station_close":      return (t("op_station_close") as string)  || "Station close";
-      case "emergency":          return (t("op_emergency") as string)      || "Emergency";
+      case "inservice_exit":     return (t("op_inservice_exit") as string)  || "Inservice - Exit";
+      case "inservice_bidirect": return (t("op_inservice_bi") as string)    || "Inservice - Bi-direction";
+      case "out_of_service":     return (t("op_out_of_service") as string)  || "Out of service";
+      case "station_close":      return (t("op_station_close") as string)   || "Station close";
+      case "emergency":          return (t("op_emergency") as string)       || "Emergency";
       default:                   return (t("operation") as string)          || "Operation";
     }
   }, [op, t]);
 
   const aisleLabel = useMemo((): string => {
     const map: Record<AisleMode, string> = {
-      0: (t("aisle_mode_0") as string) || "0 — Normally closed, no flap restriction",
-      1: (t("aisle_mode_1") as string) || "1 — Normally open",
-      2: (t("aisle_mode_2") as string) || "2 — Normally closed, left flap only",
-      3: (t("aisle_mode_3") as string) || "3 — Normally closed, right flap only",
+      0: (t("aisle_mode_value_0") as string) || "0 — Normally closed, no flap restriction",
+      1: (t("aisle_mode_value_1") as string) || "1 — Normally open",
+      2: (t("aisle_mode_value_2") as string) || "2 — Normally closed, left flap only",
+      3: (t("aisle_mode_value_3") as string) || "3 — Normally closed, right flap only",
     };
     return map[aisleMode];
   }, [aisleMode, t]);
@@ -358,10 +358,10 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
               onChange={(e) => setAisleMode(Number(e.target.value) as AisleMode)}
               disabled={!canControl}
             >
-              <option value={0}>{(t("aisle_mode_0") as string) || "0 — Normally closed, no flap restriction"}</option>
-              <option value={1}>{(t("aisle_mode_1") as string) || "1 — Normally open"}</option>
-              <option value={2}>{(t("aisle_mode_2") as string) || "2 — Normally closed, left flap only"}</option>
-              <option value={3}>{(t("aisle_mode_3") as string) || "3 — Normally closed, right flap only"}</option>
+              <option value={0}>{(t("aisle_mode_value_0") as string) || "0 — Normally closed, no flap restriction"}</option>
+              <option value={1}>{(t("aisle_mode_value_1") as string) || "1 — Normally open"}</option>
+              <option value={2}>{(t("aisle_mode_value_2") as string) || "2 — Normally closed, left flap only"}</option>
+              <option value={3}>{(t("aisle_mode_value_3") as string) || "3 — Normally closed, right flap only"}</option>
             </select>
           </label>
 
@@ -509,7 +509,7 @@ export default function DeviceControlModal({ open, device, onClose, onEnter }: P
         size="sm"
         footer={
           <>
-            <button onClick={() => setConfirmOpOpen(false)} 
+            <button onClick={() => setConfirmAisleOpen(false)} 
             className={BTN_SECONDARY}       // ⬅️ ปรับให้ขนาดเท่ากัน 
             >
               {t("cancel")}
