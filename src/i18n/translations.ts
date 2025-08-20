@@ -149,6 +149,18 @@ export const translations: Record<Lang, Record<string, string>> = {
     um_list_failed: "โหลดรายชื่อผู้ใช้ไม่สำเร็จ",
     um_create_ok: "สร้างผู้ใช้สำเร็จ",
     um_delete_ok: "ลบผู้ใช้สำเร็จ",
+
+    // ── Bulk Operations ─────────────────────────────
+    bulk_ops_title: "คำสั่งรวม",
+    apply_to: "ใช้กับ",
+    scope_current_tab: "แท็บปัจจุบัน",
+    scope_all: "ทุกอุปกรณ์",
+    bulk_station_close: "ปิดสถานี (ทั้งหมด)",
+    bulk_emergency: "โหมดฉุกเฉิน (ทั้งหมด)",
+    failed: "ล้มเหลว",
+    online_only_note: "จะดำเนินการเฉพาะอุปกรณ์ที่อยู่ในสถานะ ONLINE เท่านั้น",
+    online_only_short: "ออนไลน์",
+    no_online_in_scope: "ไม่มีอุปกรณ์ที่ออนไลน์ในขอบเขตที่เลือก",
   },
 
   en: {
@@ -298,6 +310,18 @@ export const translations: Record<Lang, Record<string, string>> = {
     um_list_failed: "Failed to load users",
     um_create_ok: "User created",
     um_delete_ok: "User deleted",
+
+    // ── Bulk Operations ─────────────────────────────
+    bulk_ops_title: "Bulk Operations",
+    apply_to: "Apply to",
+    scope_current_tab: "Current tab",
+    scope_all: "All devices",
+    bulk_station_close: "Station Close (all)",
+    bulk_emergency: "Emergency Mode (all)",
+    failed: "Failed",
+    online_only_note: "Will only apply to devices that are ONLINE.",
+    online_only_short: "Online only",
+    no_online_in_scope: "No online devices in the selected scope",
   },
 };
 

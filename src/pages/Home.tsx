@@ -1,8 +1,10 @@
 // src/pages/Home.tsx
+
 import type { Device, Side } from "@/models/device";
 import { useEffect, useMemo, useState } from "react";
 import useEffectiveStatus, { useEffectiveSummary } from "@/hooks/useEffectiveStatus";
 
+import BulkOpsOnlineOnly from "@/components/BulkOpsOnlineOnly";
 import DeviceCard from "@/components/DeviceCard";
 import DeviceControlModal from "@/components/DeviceControlModal";
 import Footer from "@/components/Footer";
@@ -132,6 +134,9 @@ export default function Home() {
             <DeviceCard key={d.id} device={d} onClick={() => setSelected(d)} />
           ))}
         </section>
+
+        {/* Bulk (ONLINE only) */}
+        <BulkOpsOnlineOnly devices={devices} currentList={list} className="mt-6" />
       </main>
 
       <Footer />
