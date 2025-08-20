@@ -307,17 +307,51 @@ ipcMain.handle(
     if (!id) return { ok: false, error: "missing deviceId" };
     if (!isOperation(op)) return { ok: false, error: `invalid operation: "${op}"` };
 
-    const hb = getHeartbeatServer();
-    if (!hb) return { ok: false, error: "heartbeat server is not running" };
-
+    // 1) พยายาม POST ไปที่ Heartbeat Server ก่อน (canonical)
+    let postOk = false;
+    let postErr: string | undefined;
     try {
-      hb.setCurrentOperation(id, op as Operation);
-      return { ok: true };
+      const base = hbBaseUrl();
+      const res = await fetch(`${base}/operation/${encodeURIComponent(id)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operation: op }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j?.ok) {
+        postOk = true;
+      } else {
+        postErr = j?.error || `HTTP ${res.status}`;
+      }
     } catch (e: any) {
-      return { ok: false, error: String(e?.message || e) };
+      postErr = String(e?.message || e);
     }
+
+    // 2) พยายามอัปเดตในโปรเซสหลักผ่าน reference ด้วย (เผื่อใช้โหมด embed)
+    let localOk = false;
+    let localErr: string | undefined;
+    try {
+      const hb = getHeartbeatServer();
+      if (!hb) {
+        localErr = "heartbeat server is not running";
+      } else {
+        hb.setCurrentOperation(id, op as Operation);
+        localOk = true;
+      }
+    } catch (e: any) {
+      localErr = String(e?.message || e);
+    }
+
+    // ✅ สำเร็จถ้าทำได้อย่างน้อยหนึ่งทาง
+    if (postOk || localOk) {
+      return { ok: true };
+    }
+
+    // ❌ ทั้ง POST และ local ล้มเหลว
+    return { ok: false, error: `post failed: ${postErr}; local failed: ${localErr}` };
   }
 );
+
 
 ipcMain.handle("devices:get-aisle-mode", async (_e, deviceId: string) => {
   if (!deviceId) return { ok: false, error: "missing deviceId" as const };

@@ -56,6 +56,13 @@ function normalizeOp(input) {
   return null;
 }
 
+function normalizeInservice(modeRaw) {
+  const m = String(modeRaw ?? "bi").trim().toLowerCase();
+  if (m.startsWith("en") || m === "entry" || m === "in:entry" || m === "in-entry") return "inservice_entry";
+  if (m.startsWith("ex") || m === "exit" || m === "in:exit" || m === "in-exit") return "inservice_exit";
+  return "inservice_bidirect";
+}
+
 /** ----- Args/Flags parsing ----- */
 function parseArgs(argv) {
   const out = { _: [] };
@@ -122,6 +129,11 @@ async function setOp(deviceId, opRaw) {
   const j = await res.json().catch(() => ({}));
   if (!res.ok || !j.ok) throw new Error(`SET op failed: ${res.status} ${JSON.stringify(j)}`);
   return op;
+}
+
+async function setInservice(deviceId, modeRaw) {
+  const op = normalizeInservice(modeRaw); // -> inservice_entry|exit|bidirect
+  return await setOp(deviceId, op);
 }
 
 /** ----- Aisle Mode GET/POST (0..3) ----- */
@@ -208,22 +220,27 @@ function printUsage() {
 Device Simulator (HB + Operation poll + optional probe port)
 
 Usage:
-  node scripts/device-sim.mjs run --id G1-01 --ip 127.0.0.1 [--status online|maintenance|fault] [--hb-interval 5000] [--op-poll 2000] [--probe-port 2222] [--probe on|off]
+  node scripts/device-sim.mjs run --id G1-01 --ip 127.0.0.1 [--status online|maintenance|fault] [--hb-interval 5000] [--op-poll 2000] [--probe-port 2222] [--probe on|off] [--inservice entry|exit|bi] [--no-inservice]
   node scripts/device-sim.mjs get <deviceId>                # get current operation
   node scripts/device-sim.mjs set <deviceId> <operation>    # set operation
   node scripts/device-sim.mjs get-aisle <deviceId>          # get aisle mode (0..3)
   node scripts/device-sim.mjs set-aisle <deviceId> <0|1|2|3># set aisle mode
 
+Notes:
+  - By default, "run" will POST an inservice operation immediately (inservice_bidirect).
+  - Override with --inservice entry|exit|bi or disable via --no-inservice.
+
 While running "run" mode, you can type commands:
-  set <op>           set operation (aliases ok: in:entry, in:exit, bi, oos, close, emer)
-  get                get current operation
-  aisle              get aisle mode
-  aisle <0|1|2|3>    set aisle mode quickly
-  aisle set <0..3>   set aisle mode explicitly
-  status <s>         change device status (online|maintenance|fault)
+  set <op>                 set operation (aliases ok: in:entry, in:exit, bi, oos, close, emer)
+  inservice [entry|exit|bi]  quick set inservice mode (default bi)
+  get                      get current operation
+  aisle                    get aisle mode
+  aisle <0|1|2|3>          set aisle mode quickly
+  aisle set <0..3>         set aisle mode explicitly
+  status <s>               change device status (online|maintenance|fault)
   probe on|off|toggle
-  help               show this help
-  quit/exit          stop simulator
+  help                     show this help
+  quit/exit                stop simulator
 
 Env:
   HB_HOST   default = ${HOST}
@@ -276,6 +293,9 @@ async function main() {
     const hbInterval = Number(args["hb-interval"] || 5000);
     const opPoll = Number(args["op-poll"] || 2000);
 
+    const inserviceMode = args["inservice"] || "bi";
+    const autoInservice = !args["no-inservice"]; // default true
+
     let probePort = args["probe-port"] ? clampPort(args["probe-port"]) : NaN;
     const wantProbe = String(args.probe || "").toLowerCase();
     const probe = Number.isFinite(probePort) ? makeProbeServer(probePort) : null;
@@ -288,12 +308,23 @@ async function main() {
 
     console.log(`[device-sim] RUN as device "${deviceId}" (${deviceIp})`);
     console.log(`[device-sim] HB every ${hbInterval}ms; op-poll ${opPoll}ms; status=${devStatus}`);
+    console.log(`[device-sim] auto inservice: ${autoInservice ? normalizeInservice(inserviceMode) : "DISABLED"}`);
 
     // HB loop
     const hbTimer = setInterval(() => {
       void sendHeartbeat({ deviceId, deviceIp, status: devStatus });
     }, hbInterval);
     await sendHeartbeat({ deviceId, deviceIp, status: devStatus }); // fire immediately
+
+    // 🚀 POST inservice right away (unless disabled)
+    if (autoInservice && devStatus === "online") {
+      try {
+        const op = await setInservice(deviceId, inserviceMode);
+        console.log(`[device-sim] POST inservice on start -> ${op} : OK`);
+      } catch (e) {
+        console.error("[device-sim] post inservice error:", e.message);
+      }
+    }
 
     // Initial reads
     try {
@@ -358,6 +389,10 @@ async function main() {
             const op = await setOp(deviceId, raw);
             console.log(`[device-sim] set ${deviceId} -> ${op} : OK`);
           }
+        } else if (c === "inservice") {
+          const m = rest[0] || "bi";
+          const op = await setInservice(deviceId, m);
+          console.log(`[device-sim] inservice -> ${op} : OK`);
         } else if (c === "aisle") {
           // aisle / aisle get / aisle 2 / aisle set 2
           const sub = (rest[0] || "").toLowerCase();

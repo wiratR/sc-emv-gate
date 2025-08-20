@@ -11,7 +11,7 @@
 export type Operation =
   | "inservice_entry"
   | "inservice_exit"
-  | "inservice_bidir"
+  | "inservice_bidirect"
   | "out_of_service"
   | "station_close"
   | "emergency";
@@ -19,7 +19,7 @@ export type Operation =
 export const ALL_OPERATIONS: Operation[] = [
   "inservice_entry",
   "inservice_exit",
-  "inservice_bidir",
+  "inservice_bidirect",
   "out_of_service",
   "station_close",
   "emergency",
@@ -33,12 +33,12 @@ export function isOperation(x: string): x is Operation {
 export const OP_GROUP: Record<Operation, "inservice" | "maintenance" | "shutdown" | "emergency"> = {
   inservice_entry:  "inservice",
   inservice_exit:   "inservice",
-  inservice_bidir:  "inservice",
+  inservice_bidirect: "inservice",
   out_of_service:   "maintenance",
   station_close:    "shutdown",
   emergency:        "emergency",
 };
 
 // default ถ้าไม่มีค่าเดิม
-export const DEFAULT_OPERATION: Operation = "inservice_bidir";
+export const DEFAULT_OPERATION: Operation = "inservice_bidirect";
 
