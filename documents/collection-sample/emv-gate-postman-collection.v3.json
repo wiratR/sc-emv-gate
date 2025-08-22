@@ -1,0 +1,430 @@
+{
+  "info": {
+    "name": "EMV Gate — Device Interface",
+    "_postman_id": "b5f0ad82-5f5c-4d2e-9d72-20250817-174601Z",
+    "description": "Postman collection for EMV Gate device integration.\n\nUpdated: Added /time, /aisle-mode, /inservice-last endpoints and extra operation presets.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Send Heartbeat",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/hb",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "hb"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"{{device_id}}\",\n  \"ip\": \"{{device_ip}}\",\n  \"status\": \"online\",\n  \"ts\": \"{{timestamp_utc}}\"\n}"
+        },
+        "description": "POST /hb — Send a single heartbeat"
+      }
+    },
+    {
+      "name": "Send Heartbeats (bulk)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/hb/bulk",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "hb",
+            "bulk"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"id\": \"{{device_id}}\",\n    \"ip\": \"{{device_ip}}\",\n    \"status\": \"online\",\n    \"ts\": \"{{timestamp_utc}}\"\n  },\n  {\n    \"id\": \"G1-02\",\n    \"ip\": \"192.168.1.102\",\n    \"status\": \"maintenance\",\n    \"ts\": \"{{timestamp_utc}}\"\n  },\n  {\n    \"id\": \"G1-03\",\n    \"ip\": \"192.168.1.103\",\n    \"status\": \"fault\",\n    \"ts\": \"{{timestamp_utc}}\"\n  }\n]"
+        },
+        "description": "POST /hb/bulk — Send multiple heartbeats"
+      }
+    },
+    {
+      "name": "Get Heartbeat Snapshot",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/hb",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "hb"
+          ]
+        },
+        "description": "GET /hb — Diagnostic snapshot"
+      }
+    },
+    {
+      "name": "Get Current Operation",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/operation/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "operation",
+            "{{device_id}}"
+          ]
+        },
+        "description": "GET /operation/:deviceId"
+      }
+    },
+    {
+      "name": "Set Operation (inservice_entry)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/operation/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "operation",
+            "{{device_id}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"operation\": \"inservice_entry\"\n}"
+        },
+        "description": "POST /operation/:deviceId"
+      }
+    },
+    {
+      "name": "Set Operation (emergency)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/operation/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "operation",
+            "{{device_id}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"operation\": \"emergency\"\n}"
+        },
+        "description": "POST /operation/:deviceId"
+      }
+    },
+    {
+      "name": "Get Server Time",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/time",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "time"
+          ]
+        },
+        "description": "GET /time — Station server time (UTC + metadata)"
+      }
+    },
+    {
+      "name": "Get Aisle Mode",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/aisle-mode/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "aisle-mode",
+            "{{device_id}}"
+          ]
+        },
+        "description": "GET /aisle-mode/:deviceId — returns { ok, aisleMode }"
+      }
+    },
+    {
+      "name": "Set Aisle Mode",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/aisle-mode/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "aisle-mode",
+            "{{device_id}}"
+          ]
+        },
+        "description": "POST /aisle-mode/:deviceId — body { \"aisleMode\": 0|1|2|3 }",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"aisleMode\": {{aisle_mode}}\n}"
+        }
+      }
+    },
+    {
+      "name": "Get Last Inservice Op",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/inservice-last/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "inservice-last",
+            "{{device_id}}"
+          ]
+        },
+        "description": "GET /inservice-last/:deviceId — returns last saved inservice op or null"
+      }
+    },
+    {
+      "name": "Set Last Inservice Op",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/inservice-last/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "inservice-last",
+            "{{device_id}}"
+          ]
+        },
+        "description": "POST /inservice-last/:deviceId — body { \"op\": \"inservice_entry|inservice_exit|inservice_bidirect\" }",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"op\": \"{{inservice_op}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "List Last Inservice Ops (all)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/inservice-last",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "inservice-last"
+          ]
+        },
+        "description": "GET /inservice-last — returns an array of { id, op }"
+      }
+    },
+    {
+      "name": "Set Operation (out_of_service)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/operation/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "operation",
+            "{{device_id}}"
+          ]
+        },
+        "description": "POST /operation/:deviceId → \"out_of_service\"",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"operation\": \"out_of_service\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Set Operation (station_close)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/operation/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "operation",
+            "{{device_id}}"
+          ]
+        },
+        "description": "POST /operation/:deviceId → \"station_close\"",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"operation\": \"station_close\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Set Operation (inservice_exit)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/operation/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "operation",
+            "{{device_id}}"
+          ]
+        },
+        "description": "POST /operation/:deviceId → \"inservice_exit\"",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"operation\": \"inservice_exit\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Set Operation (inservice_bidirect)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/operation/{{device_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "operation",
+            "{{device_id}}"
+          ]
+        },
+        "description": "POST /operation/:deviceId → \"inservice_bidirect\"",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"operation\": \"inservice_bidirect\"\n}"
+        }
+      }
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if(!pm.variables.get('timestamp_utc')){",
+          "  const d = new Date();",
+          "  const pad = (n)=> String(n).padStart(2,'0');",
+          "  const iso = d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())+'T'+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds())+'Z';",
+          "  pm.variables.set('timestamp_utc', iso);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "station_ip",
+      "value": "127.0.0.1"
+    },
+    {
+      "key": "heartbeat_port",
+      "value": "3070"
+    },
+    {
+      "key": "device_id",
+      "value": "G1-01"
+    },
+    {
+      "key": "device_ip",
+      "value": "192.168.1.101"
+    },
+    {
+      "key": "baseUrl",
+      "value": "http://{{station_ip}}:{{heartbeat_port}}"
+    },
+    {
+      "key": "aisle_mode",
+      "value": "0"
+    },
+    {
+      "key": "inservice_op",
+      "value": "inservice_bidirect"
+    }
+  ]
+}

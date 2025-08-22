@@ -1,4 +1,5 @@
 // src/components/DeviceCard.tsx
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Device } from "@/models/device";
@@ -28,8 +29,9 @@ export default function DeviceCard({ device, onClick }: Props) {
     staleMs: 60_000,
     offlineMs: 300_000,
   });
-  // const isOnline = status === "online"; // ← ใช้ effective status
-  const isOnline = device.status === "online";
+
+  // ✅ ใช้ "effective status" แทนสถานะดิบของอุปกรณ์
+  const isOnline = status === "online";
 
   // ── Current Operation (poll ทุก 10s เฉพาะตอน online) ────────
   const [op, setOp] = useState<Operation | null>(null);
@@ -54,7 +56,7 @@ export default function DeviceCard({ device, onClick }: Props) {
 
     // ถ้าไม่ online ให้ล้างค่า op และไม่ตั้ง interval
     if (!isOnline) {
-      setOp(null);
+      setOp(null);          // ✅ เคลียร์ค่า operation ทันทีเมื่อ OFFLINE
       setOpLoading(false);
       return () => { alive = false; };
     }
@@ -134,7 +136,7 @@ export default function DeviceCard({ device, onClick }: Props) {
     <span
       className={`inline-flex items-center text-[11px] border px-2 py-0.5 rounded-full ${opPillClass}`}
       title={isOnline ? (op ?? "—") : "—"}
-      aria-busy={isOnline && opLoading || undefined}
+      aria-busy={(isOnline && opLoading) || undefined}
       aria-live="polite"
     >
       {/* ไม่ online → แสดง “—” เสมอ */}
