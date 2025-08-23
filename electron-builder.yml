@@ -49,7 +49,6 @@ dmg:
 win:
   target: [nsis, zip]
   icon: build/icon.ico
-  console: true     # ✅ ช่วยเปิด console ตอนรัน .exe จะเห็น error
 
 nsis:
   oneClick: false
