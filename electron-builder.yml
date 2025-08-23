@@ -1,21 +1,38 @@
 appId: com.example.sc-emv-gate
 productName: sc-emv-gate
 
-# ปิด autopublish (แทนการใช้ "never")
 publish: null
 
+# ✅ รวม production deps ใน node_modules เข้าไปด้วย
 files:
   - dist/**
   - dist-electron/**
+  - node_modules/**           # <-- สำคัญ
   - package.json
+  - '!**/*.map'
+  - '!**/.*/**'               # ignore โฟลเดอร์ซ่อน
+  - '!src/**'                 # ไม่ต้องแพ็ก src ถ้าไม่ใช้
 
 directories:
   buildResources: build
 
 asar: true
 asarUnpack:
-  - node_modules/better-sqlite3/**
-  - node_modules/node-pty/**
+  # ✅ คลายทุกไฟล์ .node ออกจาก asar + โฟลเดอร์ของ native modules
+  - '**/*.node'
+  - 'node_modules/**/build/Release/*.node'
+  - 'node_modules/better-sqlite3/**'
+  - 'node_modules/node-pty/**'
+  - '**/*.dll'                # กันเหนียวบน Windows
+
+# ✅ ใส่ resource ที่แอปอ้างอิงตอนรัน (ถ้ามี)
+extraResources:
+  - from: database
+    to: database
+  - from: data
+    to: data
+  - from: config.json
+    to: config.json
 
 mac:
   category: public.app-category.utilities
@@ -32,6 +49,7 @@ dmg:
 win:
   target: [nsis, zip]
   icon: build/icon.ico
+  console: true     # ✅ ช่วยเปิด console ตอนรัน .exe จะเห็น error
 
 nsis:
   oneClick: false
@@ -41,4 +59,4 @@ linux:
   target: [AppImage, deb]
   category: Utility
   icon: build/icons
-  maintainer: "Siam Infinity Solution <wiart.r@sissolution.co.th>"
+  maintainer: "Siam Infinity Solution <wirat.r@sissolution.co.th>"
