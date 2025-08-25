@@ -12,6 +12,17 @@ let logDir = "";
 let logFile = "";
 let currentYMD = "";
 
+// ─ New: กัน init ซ้ำ + เก็บ API ไว้คืน
+let loggerInitialized = false;
+let loggerApi: {
+  refresh: () => void;
+  getInfo: () => { minLevel: LogLevel; logFile: string; logDir: string };
+  debug: (...args: any[]) => void;
+  info:  (...args: any[]) => void;
+  warn:  (...args: any[]) => void;
+  error: (...args: any[]) => void;
+} | null = null;
+
 // ───────────────────────── helpers (LOCAL time) ─────────────────────────
 function pad2(n: number) { return String(n).padStart(2, "0"); }
 function pad3(n: number) { return String(n).padStart(3, "0"); }
@@ -111,7 +122,21 @@ function rollIfNewDay() {
   }
 }
 
+// ─ helpers กันซ้ำสำหรับ IPC ─
+function safeHandle(channel: string, handler: Parameters<typeof ipcMain.handle>[1]) {
+  try { ipcMain.removeHandler(channel); } catch {}
+  ipcMain.handle(channel, handler);
+}
+function safeOn(channel: string, listener: Parameters<typeof ipcMain.on>[1]) {
+  ipcMain.removeAllListeners(channel);
+  ipcMain.on(channel, listener);
+}
+
 export function initLogger() {
+  // ✅ กันซ้ำ: ถ้า init แล้ว ให้คืน API เดิม
+  if (loggerInitialized && loggerApi) return loggerApi;
+  loggerInitialized = true;
+
   ensureLogTargets();
   cleanupOldLogs();
 
@@ -124,7 +149,7 @@ export function initLogger() {
     fs.appendFileSync(logFile, `[${ts}] [${level.toUpperCase()}] [${from}] ${msg}\n`);
   };
 
-  // — override console ของ main
+  // — override console ของ main (ทำครั้งเดียวพอ)
   const origLog = console.log;
   const origWarn = console.warn;
   const origErr = console.error;
@@ -133,22 +158,22 @@ export function initLogger() {
   console.warn = (...args: any[]) => { write("warn",  "main", args); origWarn(...args); };
   console.error= (...args: any[]) => { write("error", "main", args); origErr(...args); };
 
-  // — ให้ renderer ส่ง log เข้ามา
-  ipcMain.on("log:write", (_e, payload: { level: LogLevel; args: any[] }) => {
-    const level = payload?.level || "info";
+  // — ให้ renderer ส่ง log เข้ามา (safe)
+  safeOn("log:write", (_e, payload: { level: LogLevel; args: any[] }) => {
+    const level = (payload?.level as LogLevel) || "info";
     if (!["debug", "info", "warn", "error"].includes(level)) return;
-    write(level as LogLevel, "renderer", payload.args || []);
+    write(level, "renderer", payload?.args || []);
   });
 
-  // — เปิดโฟลเดอร์ log
-  ipcMain.handle("log:open-folder", async () => {
+  // — เปิดโฟลเดอร์ log (safe)
+  safeHandle("log:open-folder", async () => {
     ensureLogTargets();
     await shell.openPath(logDir);
     return { ok: true, logDir };
   });
 
-  // — ส่งสถานะ logger
-  ipcMain.handle("log:info", async () => {
+  // — ส่งสถานะ logger (safe)
+  safeHandle("log:info", async () => {
     ensureLogTargets();
     return { ok: true, minLevel, logFile, logDir };
   });
@@ -156,13 +181,14 @@ export function initLogger() {
   // — ใช้เมื่อ config ถูกอัปเดต
   const refresh = () => { ensureLogTargets(); cleanupOldLogs(); };
 
-  // — เผื่ออยากใช้ logger ตรง ๆ ไม่ผ่าน console
-  const api = {
+  loggerApi = {
+    refresh,
+    getInfo: () => ({ minLevel, logFile, logDir }),
     debug: (...args: any[]) => write("debug", "main", args),
     info:  (...args: any[]) => write("info",  "main", args),
     warn:  (...args: any[]) => write("warn",  "main", args),
     error: (...args: any[]) => write("error", "main", args),
   };
 
-  return { refresh, getInfo: () => ({ minLevel, logFile, logDir }), ...api };
+  return loggerApi;
 }

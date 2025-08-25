@@ -1,25 +1,35 @@
 // src/electron/main.ts
 
 import { BrowserWindow, app, ipcMain, session, shell } from "electron";
-import { loadConfig, resolveStationName } from "./config";
+import path from "path";
 
+import { loadConfig, resolveStationName } from "./config";
 import { initLogger } from "./logging";
 import { openDB } from "./db";
-import path from "path";
+
 import { setupAuthIPC } from "./ipc/auth";
 import { setupConfigIPC } from "./ipc/config";
 import { setupDeviceIPC } from "./ipc/device";
 import { setupTerminalIPC } from "./ipc/terminal";
 import { setupUsersIPC } from "./ipc/user";
+
 import { startHeartbeatServerFromConfig, type HeartbeatServer } from "./heartbeatServer";
 import { setHeartbeatServerRef } from "./main-hb-ref";
 
-import url from "url";
+// ───────────────── Global error guards ─────────────────
+process.on("unhandledRejection", (e) => {
+  try { require("electron-log").error(e); } catch { console.error(e); }
+});
+process.on("uncaughtException", (e) => {
+  try { require("electron-log").error(e); } catch { console.error(e); }
+});
 
+// ───────────────── State ─────────────────
 let hbServer: HeartbeatServer | null = null;
 let win: BrowserWindow | null = null;
 const getWindow = () => win;
 
+// ───────────────── Utils ─────────────────
 /** แปลง deviceCommunicationPath → path ของไฟล์ JSON จริง (ถ้าเป็นโฟลเดอร์จะเติม device-communication.json ให้) */
 function resolveDeviceFilePath(deviceCommunicationPath: string | undefined, configPathUsed: string) {
   if (!deviceCommunicationPath) return undefined;
@@ -47,7 +57,6 @@ async function clearAppSession() {
   const ses = session.defaultSession;
   await ses.clearStorageData({
     storages: [
-      // "appcache",
       "cookies",
       "filesystem",
       "indexdb",
@@ -62,7 +71,7 @@ async function clearAppSession() {
   console.log("[main] Cleared session data");
 }
 
-/** ให้ renderer สั่งล้าง session ได้ */
+// ให้ renderer สั่งล้าง session ได้ (ลงทะเบียนครั้งเดียว)
 ipcMain.handle("clear-session", async () => {
   try {
     await clearAppSession();
@@ -72,41 +81,30 @@ ipcMain.handle("clear-session", async () => {
   }
 });
 
+// ───────────────── Window ─────────────────
 async function createWindow() {
-  // ── Load config ──────────────────────────────────────────────
+  console.log("[env] isPackaged =", app.isPackaged,
+            "defaultApp =", !!(process as any).defaultApp,
+            "execPath =", process.execPath);
+  console.log("[env] appName =", app.getName(),
+              "userData =", app.getPath("userData"));
+  // โหลด config เฉพาะที่ต้องใช้กับหน้าต่าง (อย่าใช้เพื่อเลือก dev/prod)
   const { config, pathUsed } = loadConfig();
-  const isDev = config.environment === "development";
+  const isDev = !app.isPackaged; // ✅ ใช้สถานะจริงของแอป
 
-  // ── Init logger, DB, IPC ─────────────────────────────────────
-  const logger = initLogger();
-  const db = openDB(logger);
-
-  setupAuthIPC(db);
-  setupConfigIPC(logger);
-  setupUsersIPC(db, logger);
-
-  // deviceCommunicationPath → ไฟล์ JSON จริง & ตั้ง IPC ของ devices
+  // ข้อมูลสถานี/ไฟล์ device เพื่อ log
   const deviceFilePath = resolveDeviceFilePath(config.deviceCommunicationPath, pathUsed);
-  setupDeviceIPC(getWindow, deviceFilePath);
-  setupTerminalIPC();
-  console.log("[main] debug deviceFile Path:", deviceFilePath);
   const stationNameEN = resolveStationName(config.stationName, "en");
-  if (config.stationName || config.stationId) {
-    console.log("[config] station =", stationNameEN || "", config.stationId ?? "");
-  }
 
-  // ✅ กันพลาดใน dev: ล้างเศษ session ก่อนสร้างหน้าต่าง
   if (isDev) {
-    await clearAppSession();
+    await clearAppSession(); // กัน cache เก่า ๆ ตอนพัฒนา
   }
 
-  // ── Create BrowserWindow ─────────────────────────────────────
   win = new BrowserWindow({
     width: 1100,
     height: 800,
-    fullscreen: !!config.fullScreen,   // 👈 อ่านจาก config
+    fullscreen: !!config.fullScreen,
     autoHideMenuBar: !!config.fullScreen,
-    // kiosk: true,           // (ทางเลือก) โหมดคีออส กดออกยาก เหมาะงานหน้าร้าน
     backgroundColor: "#000000",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -114,6 +112,7 @@ async function createWindow() {
       nodeIntegration: false,
       sandbox: false,
     },
+    show: false, // show เมื่อ ready-to-show เพื่อลดจอฟ้า/ดำวาบ
   });
 
   // เปิดลิงก์ภายนอกด้วย default browser
@@ -135,35 +134,39 @@ async function createWindow() {
     if (!ok) e.preventDefault();
   });
 
-  // ── Load renderer (React) ────────────────────────────────────
+  // Log ข้อมูลมีประโยชน์
+  console.log("[DB] Loading config from:", pathUsed !== "(defaults)" ? pathUsed : "(defaults)");
+  if (config.stationName || config.stationId) {
+    console.log("[config] station =", stationNameEN || "", config.stationId ?? "");
+  }
+  if (config.stationIp) console.log("[config] stationIp =", config.stationIp);
+  if (deviceFilePath) console.log("[config] deviceFilePath =", deviceFilePath);
+  if (config.fullScreen) console.log("[config] fullScreen =", config.fullScreen);
+
+  // โหลด UI
   if (isDev) {
-    console.log("[config] Loaded from:", pathUsed);
-    console.log("[config] environment =", config.environment);
-    console.log("[config] databasePath =", config.databasePath);
-    console.log("[config] logsPath =", config.logsPath);
-    if (config.stationName || config.stationId)
-      console.log("[config] station =", config.stationName ?? "", config.stationId ?? "");
-    if (config.stationIp) console.log("[config] stationIp =", config.stationIp);
-    if (deviceFilePath) console.log("[config] deviceFilePath =", deviceFilePath);
-    if (config.fullScreen) console.log ("[config] fullScreen =", config.fullScreen);
     console.log("[env] Dev mode → http://localhost:5173/#/login");
-    win.loadURL("http://localhost:5173/#/login");
-    // win.webContents.openDevTools({ mode: "detach" });
+    await win.loadURL("http://localhost:5173/#/login");
+    win.webContents.openDevTools({ mode: "detach" });
   } else {
     console.log("[env] Prod mode → load index.html");
-    const indexPath = url
-      .pathToFileURL(path.join(__dirname, "../dist/index.html"))
-      .toString();
-    win.loadURL(indexPath);
+    const indexHtmlPath = path.join(__dirname, "../dist/index.html");
+    await win.loadFile(indexHtmlPath, { hash: "/login" }); // ใช้ HashRouter
+    //win.webContents.openDevTools({ mode: "detach" });
   }
 
-  // ── Diagnostics / Logging ────────────────────────────────────
-  win.webContents.on("did-fail-load", (_e, code, desc, theUrl) => {
-    console.error("[did-fail-load]", code, desc, theUrl);
+  // Diagnostics / Logging
+  win.webContents.on("did-fail-load", async (_e, code, desc, failingUrl) => {
+    console.error("[did-fail-load]", code, desc, failingUrl);
+    if (!win?.isDestroyed() && isDev && failingUrl?.startsWith("http://localhost:5173")) {
+      const indexHtmlPath = path.join(__dirname, "../dist/index.html");
+      console.log("[did-fail-load] dev server down → fallback to local file");
+      await win?.loadFile(indexHtmlPath, { hash: "/login" });
+    }
   });
 
   win.webContents.on("console-message", (_e, level, msg, line, sourceId) => {
-    if (sourceId?.startsWith("devtools://")) return; // ตัด log ภายใน DevTools เอง
+    if (sourceId?.startsWith("devtools://")) return; // ตัด log ภายใน DevTools
     console.log(`[renderer:${level}]`, msg, `@${sourceId}:${line}`);
   });
 
@@ -180,9 +183,8 @@ async function createWindow() {
   console.log("[app] ready");
 }
 
-// ── Single-instance lock ───────────────────────────────────────
+// ───────────────── Single-instance ─────────────────
 const gotLock = app.requestSingleInstanceLock();
-
 if (!gotLock) {
   app.quit();
 } else {
@@ -195,10 +197,27 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
-    // ✅ เริ่ม HTTP Heartbeat จาก config
+    // ✅ Init ส่วน global (ทำครั้งเดียว)
+    const logger = initLogger();          // idempotent
+    const db = openDB(logger);
+
+    // โหลด config เพื่อคำนวณ deviceFilePath ให้ setupDeviceIPC
+    const { config, pathUsed } = loadConfig();
+    const deviceFilePath = resolveDeviceFilePath(config.deviceCommunicationPath, pathUsed);
+
+    // ลงทะเบียน IPC ทั้งหมด "ครั้งเดียว"
+    setupAuthIPC(db);
+    setupConfigIPC(logger);
+    setupUsersIPC(db, logger);
+    setupTerminalIPC();
+    setupDeviceIPC(getWindow, deviceFilePath);
+
+    // เริ่ม Heartbeat server ตาม config
     hbServer = startHeartbeatServerFromConfig();
     setHeartbeatServerRef(hbServer);
+
     void createWindow();
+
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) void createWindow();
     });
@@ -208,11 +227,9 @@ if (!gotLock) {
     if (process.platform !== "darwin") app.quit();
   });
 
-  // ✅ เคลียร์ session/caches อัตโนมัติก่อนปิดแอปทุกครั้ง
+  // เคลียร์ session/caches ก่อนปิดแอปทุกครั้ง
   app.on("before-quit", async () => {
-    try {
-      await clearAppSession();
-    } catch (err) {
+    try { await clearAppSession(); } catch (err) {
       console.error("[main] Failed to clear session data:", err);
     }
     try { hbServer?.close(); } catch {}
